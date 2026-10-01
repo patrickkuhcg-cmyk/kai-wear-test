@@ -68,6 +68,39 @@ if old_sync_access not in html:
     raise RuntimeError('Sync access handling patch target not found')
 html = html.replace(old_sync_access, new_sync_access, 1)
 
+# Add a fast sync safety loop in addition to the existing live event stream.
+# This keeps separate devices within about one second even if SSE is delayed,
+# backgrounded, or briefly disconnected. Guard against overlapping sync calls.
+fast_sync_patch = r"""
+<script>
+(() => {
+  let kaiFastSyncBusy = false;
+  async function kaiFastSync() {
+    if (kaiFastSyncBusy || !navigator.onLine) return;
+    try {
+      if (typeof user === 'undefined' || !user) return;
+      if (typeof sync !== 'function') return;
+      kaiFastSyncBusy = true;
+      await sync();
+    } catch (_) {
+      // Existing sync/session handling remains authoritative.
+    } finally {
+      kaiFastSyncBusy = false;
+    }
+  }
+  setInterval(kaiFastSync, 1000);
+  window.addEventListener('focus', kaiFastSync);
+  window.addEventListener('online', kaiFastSync);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) kaiFastSync();
+  });
+})();
+</script>
+"""
+if '</body>' not in html:
+    raise RuntimeError('Unable to attach fast sync safety loop')
+html = html.replace('</body>', fast_sync_patch + '\n</body>', 1)
+
 index.write_text(html)
 
-print('Kai Wear deployment sources assembled; owner sales, session handling and real-time sync corrected.')
+print('Kai Wear deployment sources assembled; owner sales, session handling and fast cross-device sync corrected.')
