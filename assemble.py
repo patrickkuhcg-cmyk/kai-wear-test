@@ -19,6 +19,18 @@ data = base64.b64decode(payload)
 with zipfile.ZipFile(io.BytesIO(data)) as z:
     z.extractall(root)
 
+server = root / 'server.py'
+server_text = server.read_text()
+
+old_owner_guard = """                    if data.get('type')=='sale' and u['role']=='owner':
+                        with conn() as c:binding=c.execute('SELECT installation FROM counters WHERE device=?',(data.get('data',{}).get('device'),)).fetchone()
+                        if not binding or not binding[0] or binding[0]!=u.get('installation') or self.installation()!=u.get('installation'):return self.send_json({'error':'Owner sales require this browser to be assigned to that counter. Log in as its cashier first.'},403)
+"""
+if old_owner_guard not in server_text:
+    raise RuntimeError('Owner sale server guard patch target not found')
+server_text = server_text.replace(old_owner_guard, '', 1)
+server.write_text(server_text)
+
 index = root / 'static' / 'index.html'
 html = index.read_text()
 old = """<label>${setup?'Owner password (10+ characters)':'Password / counter code'}<input name="password" type="password" autocomplete="${setup?'new-password':'current-password'}" required ${setup?'minlength="10"':''}></label>"""
@@ -39,17 +51,23 @@ if old_sell not in html:
 html = html.replace(old_sell, new_sell, 1)
 
 old_device = "if(page==='New sale'){if(!owner())device=user.device||user.name;else if(live&&!user.saleDevices?.includes(device))device=user.saleDevices?.[0]||device;"
-new_device = "if(page==='New sale'){if(!owner())device=user.device||user.name;else if(live&&!user.saleDevices?.includes(device))device=(user.saleDevices?.[0]||allowedDevices()[0]||device);"
+new_device = "if(page==='New sale'){if(!owner())device=user.device||user.name;else if(live&&!allowedDevices().includes(device))device=(allowedDevices()[0]||device);"
 if old_device not in html:
     raise RuntimeError('Owner sale counter fallback patch target not found')
 html = html.replace(old_device, new_device, 1)
 
 old_options = "${(live&&owner()?user.saleDevices:allowedDevices()).map(d=>`<option value=\"${d}\" ${device===d?'selected':''}>${counterName(d)}</option>`).join('')}"
-new_options = "${(live&&owner()&&user.saleDevices?.length?user.saleDevices:allowedDevices()).map(d=>`<option value=\"${d}\" ${device===d?'selected':''}>${counterName(d)}</option>`).join('')}"
+new_options = "${allowedDevices().map(d=>`<option value=\"${d}\" ${device===d?'selected':''}>${counterName(d)}</option>`).join('')}"
 if old_options not in html:
     raise RuntimeError('Owner sale counter options patch target not found')
 html = html.replace(old_options, new_options, 1)
 
+old_sync_access = "if(e.code===401||e.code===403){blockAccess('Your access changed or session expired. Log in again. Pending receipts remain saved.');}"
+new_sync_access = "if(e.code===401){blockAccess('Your session expired or account access changed. Log in again. Pending receipts remain saved.');}else if(e.code===403){toast(e.message||'This action is not permitted for this account.');}"
+if old_sync_access not in html:
+    raise RuntimeError('Sync access handling patch target not found')
+html = html.replace(old_sync_access, new_sync_access, 1)
+
 index.write_text(html)
 
-print('Kai Wear deployment sources assembled; login eye and owner New Sale enabled.')
+print('Kai Wear deployment sources assembled; owner sales, session handling and real-time sync corrected.')
