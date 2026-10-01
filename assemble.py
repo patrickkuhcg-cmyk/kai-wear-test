@@ -1,15 +1,13 @@
 from pathlib import Path
+import base64, io, zipfile
 
-root=Path(__file__).parent
-parts=root/'.deploy_parts'
-
-def assemble(prefix, destination):
-    files=sorted(parts.glob(prefix+'.part*'))
-    if not files:
-        raise RuntimeError(f'No deployment parts found for {prefix}')
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(''.join(p.read_text() for p in files))
-
-assemble('server', root/'server.py')
-assemble('index', root/'static'/'index.html')
+root = Path(__file__).parent
+parts = root / '.deploy_payload'
+files = sorted(parts.glob('payload.part*'))
+if not files:
+    raise RuntimeError('Kai Wear deployment payload is missing')
+payload = ''.join(p.read_text().strip() for p in files)
+data = base64.b64decode(payload)
+with zipfile.ZipFile(io.BytesIO(data)) as z:
+    z.extractall(root)
 print('Kai Wear deployment sources assembled.')
