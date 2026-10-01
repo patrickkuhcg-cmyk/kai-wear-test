@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: kai-wear-test
+    runtime: python
+    plan: free
+    buildCommand: python assemble.py && python -m py_compile server.py hosted_start.py
+    startCommand: python hosted_start.py
+    healthCheckPath: /api/status
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: KAI_SECURE_COOKIE
+        value: "1"
+      - key: KAI_OWNER_PASSWORD
+        sync: false
