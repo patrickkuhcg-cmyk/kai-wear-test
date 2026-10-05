@@ -4,8 +4,7 @@ import runpy
 root=Path(__file__).parent
 index=root/'static'/'index.html'
 
-# Final Stock correction is applied immediately before the stability controller,
-# giving it final authority over Expand and legacy Stock summary cleanup.
+# Keep the working v16.2 Stock runtime/fix intact.
 stock_fix=root/'stock_expand_fix_v16_2_patch.py'
 if stock_fix.exists():
     runpy.run_path(str(stock_fix),run_name='__kai_stock_expand_fix_v16_2__')
@@ -15,8 +14,7 @@ html=index.read_text()
 css=r'''
 <style id="kai-v16-2-legacy-stock-cleanup">
 #excel-dashboard-stock,#kai-inventory-intelligence{display:none!important}
-/* Remove ONLY the two obsolete blocks immediately below Stock search.
-   Do not hide the v16.2 toolbar/intelligence or the working Expand control. */
+/* These are the two obsolete blocks directly below the Stock search/filter row. */
 #kai-stock-compact-bar,#kai-category-summary{display:none!important}
 </style>
 '''
@@ -34,18 +32,26 @@ js=r'''
   let manualSyncUntil=0;
 
   const pageName=()=>String(typeof page==='undefined'?'':page);
-  const removeLegacyStockSummary=()=>{
+  const removeOnlyLegacyTopStockBlocks=()=>{
     document.getElementById('excel-dashboard-stock')?.remove();
     document.getElementById('kai-inventory-intelligence')?.remove();
-    if(pageName()==='Stock'){
-      document.querySelectorAll('.excel-stock-summary').forEach(el=>el.remove());
-      document.getElementById('kai-stock-compact-bar')?.remove();
-      document.getElementById('kai-category-summary')?.remove();
-    }
+    if(pageName()!=='Stock')return;
+    document.querySelectorAll('.excel-stock-summary').forEach(el=>el.remove());
+    document.getElementById('kai-stock-compact-bar')?.remove();
+    document.getElementById('kai-category-summary')?.remove();
+  };
+  const scheduleLegacyCleanup=()=>{
+    removeOnlyLegacyTopStockBlocks();
+    // Older Stock helpers create these two blocks on a delayed post-render pass.
+    // Remove only those exact IDs after that pass, leaving v16.2 controls intact.
+    setTimeout(removeOnlyLegacyTopStockBlocks,0);
+    setTimeout(removeOnlyLegacyTopStockBlocks,40);
+    setTimeout(removeOnlyLegacyTopStockBlocks,140);
   };
   const emitRendered=()=>{
-    removeLegacyStockSummary();
+    scheduleLegacyCleanup();
     try{document.dispatchEvent(new CustomEvent('kai:rendered',{detail:{page:pageName()}}))}catch(_){ }
+    scheduleLegacyCleanup();
   };
 
   render=function(...args){
@@ -75,9 +81,9 @@ js=r'''
   },true);
 
   const markBuild=()=>{
-    removeLegacyStockSummary();
+    scheduleLegacyCleanup();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v16.2.2 · Exact Stock Duplicate Cleanup · 05 Oct 2026';
+    if(b)b.textContent='Excel Inventory Model v16.2.3 · Exact Two-Block Cleanup · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -88,4 +94,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v16.2.2 enabled: exact obsolete Stock compact bar and category summary removed; working v16.2 controls remain intact.')
+print('Kai Wear v16.2.3 enabled: only delayed legacy Stock compact bar and category summary are removed; lower working controls stay intact.')
