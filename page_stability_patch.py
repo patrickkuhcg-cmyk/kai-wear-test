@@ -86,7 +86,7 @@ js=r'''
   const markBuild=()=>{
     removeOnlyLegacyTopStockBlocks();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Kai Wear Management System v16.2.7 · Sale Catalogue Dropdown · 05 Oct 2026';
+    if(b)b.textContent='Kai Wear Management System v16.2.8 · Brand Slogan Fix · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -104,9 +104,15 @@ wording_patch=root/'product_wording_patch.py'
 if wording_patch.exists():
     runpy.run_path(str(wording_patch),run_name='__kai_product_wording__')
 
-# Branding-only pass: update the logo slogan while preserving the logo artwork.
+# Asset-level branding pass: update any old slogan text/vector assets where possible.
 logo_slogan_patch=root/'logo_slogan_patch.py'
 if logo_slogan_patch.exists():
     runpy.run_path(str(logo_slogan_patch),run_name='__kai_logo_slogan__')
 
-print('Kai Wear Management System v16.2.7 enabled: product wording and Wear Your Passion branding applied; logic unchanged.')
+# Deterministic runtime branding: explicitly show Wear Your Passion on login,
+# sidebar and receipt output even when the old logo slogan is baked into artwork.
+brand_runtime_patch=root/'brand_slogan_runtime_patch.py'
+if brand_runtime_patch.exists():
+    runpy.run_path(str(brand_runtime_patch),run_name='__kai_brand_slogan_runtime__')
+
+print('Kai Wear Management System v16.2.8 enabled: Wear Your Passion enforced on login, sidebar and receipts; business logic unchanged.')
