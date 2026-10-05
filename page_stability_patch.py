@@ -97,4 +97,11 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v16.2.7 enabled: full catalogue visible in New Sale dropdown; zero-stock sales remain blocked.')
+
+# Final pass is wording-only: use "product" terminology for Kai Wear's mixed
+# sportswear catalogue without touching any business/UI behavior.
+wording_patch=root/'product_wording_patch.py'
+if wording_patch.exists():
+    runpy.run_path(str(wording_patch),run_name='__kai_product_wording__')
+
+print('Kai Wear v16.2.7 enabled: full catalogue visible in New Sale dropdown; product wording applied; logic unchanged.')
