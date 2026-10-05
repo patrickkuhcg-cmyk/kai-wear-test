@@ -36,6 +36,7 @@ js = r'''
   let pickerPointer=false;
   let interactionUntil=0;
   let idleTimer=null;
+  let globalDropdownActive=false;
   const coreSync=typeof sync==='function'?sync:null;
   const coreAdd=typeof addSaleProduct==='function'?addSaleProduct:null;
 
@@ -43,7 +44,7 @@ js = r'''
     interactionUntil=Date.now()+ms;
     if(idleTimer)clearTimeout(idleTimer);
     idleTimer=setTimeout(()=>{
-      if(pendingSync&&coreSync&&Date.now()>=interactionUntil){
+      if(pendingSync&&coreSync&&Date.now()>=interactionUntil&&!globalDropdownActive){
         pendingSync=false;
         const y=window.scrollY;
         coreSync().catch(()=>{}).finally(()=>requestAnimationFrame(()=>window.scrollTo(0,y)));
@@ -84,7 +85,7 @@ js = r'''
     const ui=ensurePicker();
     pickerOpen=false;pickerIndex=-1;
     if(ui)ui.catalog.classList.remove('open');
-    if(runSync&&pendingSync&&coreSync&&Date.now()>=interactionUntil){
+    if(runSync&&pendingSync&&coreSync&&Date.now()>=interactionUntil&&!globalDropdownActive){
       pendingSync=false;
       const y=window.scrollY;
       setTimeout(()=>coreSync().catch(()=>{}).finally(()=>requestAnimationFrame(()=>window.scrollTo(0,y))),0);
@@ -181,15 +182,61 @@ js = r'''
     ui.input.onblur=()=>setTimeout(()=>{if(!pickerPointer)closePicker()},180);
   };
 
+  function isStableDropdownControl(el){
+    if(!el||!el.matches)return false;
+    return el.matches('select,[role="combobox"],input[list]');
+  }
+  function flushDeferredSync(){
+    if(!pendingSync||!coreSync||globalDropdownActive||Date.now()<interactionUntil)return;
+    pendingSync=false;
+    const y=window.scrollY;
+    setTimeout(()=>coreSync().catch(()=>{}).finally(()=>requestAnimationFrame(()=>window.scrollTo(0,y))),0);
+  }
+
+  // Global dropdown stability guard. Native selects and comboboxes elsewhere in
+  // the program are protected from background re-rendering while the user has
+  // them open or focused. No business logic or form values are changed.
+  document.addEventListener('focusin',e=>{
+    if(isStableDropdownControl(e.target)){
+      globalDropdownActive=true;
+      touchInteraction(1200);
+    }
+  },true);
+  document.addEventListener('pointerdown',e=>{
+    if(isStableDropdownControl(e.target)){
+      globalDropdownActive=true;
+      touchInteraction(1400);
+    }
+  },true);
+  document.addEventListener('change',e=>{
+    if(isStableDropdownControl(e.target)){
+      touchInteraction(350);
+      setTimeout(()=>{
+        if(!isStableDropdownControl(document.activeElement))globalDropdownActive=false;
+        flushDeferredSync();
+      },80);
+    }
+  },true);
+  document.addEventListener('focusout',e=>{
+    if(isStableDropdownControl(e.target)){
+      setTimeout(()=>{
+        globalDropdownActive=isStableDropdownControl(document.activeElement);
+        flushDeferredSync();
+      },140);
+    }
+  },true);
+
   // Strong interaction lock: live sync is deferred while the user is typing,
-  // scrolling or choosing a sale item. This prevents the New Sale DOM from
-  // being rebuilt underneath the dropdown.
+  // scrolling or choosing a sale item, or while any dropdown elsewhere in the
+  // program is being used. This prevents the current view from being rebuilt
+  // underneath an open control.
   if(coreSync){
     sync=async function(...args){
       const ui=ensurePicker();
       const activeSale=(typeof page!=='undefined'&&page==='New sale');
-      const interacting=activeSale&&(pickerOpen||pickerPointer||document.activeElement===ui?.input||Date.now()<interactionUntil);
-      if(interacting){pendingSync=true;return}
+      const saleInteracting=activeSale&&(pickerOpen||pickerPointer||document.activeElement===ui?.input||Date.now()<interactionUntil);
+      const dropdownInteracting=globalDropdownActive||isStableDropdownControl(document.activeElement);
+      if(saleInteracting||dropdownInteracting){pendingSync=true;return}
       const pageY=window.scrollY;
       const dropY=ui?.catalog.scrollTop||0;
       const result=await coreSync(...args);
@@ -216,4 +263,4 @@ if body_end < 0:
     raise RuntimeError('Final body tag not found')
 html = html[:body_end] + css + '\n' + js + '\n' + html[body_end:]
 index.write_text(html)
-print('Kai Wear sales picker stabilized and manual product entry enabled.')
+print('Kai Wear dropdowns stabilized globally; sales picker and manual product entry preserved.')
