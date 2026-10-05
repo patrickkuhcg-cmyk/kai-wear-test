@@ -3,7 +3,7 @@ services:
     name: kai-wear-test
     runtime: python
     plan: free
-    buildCommand: python assemble.py && python -m py_compile server.py hosted_start.py
+    buildCommand: python assemble.py && python ui_patch.py && python -m py_compile server.py hosted_start.py ui_patch.py
     startCommand: python hosted_start.py
     healthCheckPath: /api/status
     envVars:
