@@ -62,8 +62,8 @@ js=r'''
       return out;
     }
 
-    // Core architectural rule: background sync never reconstructs stable
-    // workspace pages. There is deliberately no pending/idle render here.
+    // Background sync is data-only on stable workspace pages. It may refresh
+    // in-memory state, but it must never reconstruct the active DOM.
     if(inBackgroundSync&&stableWorkspace()&&Date.now()>manualSyncUntil)return;
 
     const snap=snapshot(current);
@@ -85,21 +85,23 @@ js=r'''
     }
   };
 
-  // An explicit Sync is allowed to refresh the workspace once because the user
-  // asked for it. Automatic polling remains silent on Stock and Accounts/Access.
+  // Explicit Sync is the only sync-driven redraw allowed on Stock and
+  // Accounts & Access. Automatic polling stays silent there.
   document.addEventListener('click',e=>{
     const el=e.target.closest?.('button,a');if(!el)return;
     const t=(el.textContent||'').trim().toLowerCase();
     if(t==='sync'||t.includes('sync now'))manualSyncUntil=Date.now()+3000;
   },true);
 
-  // Remember page position continuously without causing any rendering.
   let rememberTimer=null;
   const remember=()=>{if(rememberTimer)clearTimeout(rememberTimer);rememberTimer=setTimeout(()=>snapshot(pageName()),80)};
   window.addEventListener('scroll',remember,{passive:true});
   document.addEventListener('scroll',remember,{capture:true,passive:true});
   document.addEventListener('input',remember,true);
   document.addEventListener('change',remember,true);
+
+  const markV13=()=>{const b=document.getElementById('kai-build-marker');if(b)b.textContent='Excel Inventory Model v13 · Stable Workspace Architecture · 05 Oct 2026'};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markV13,{once:true});else markV13();
 })();
 </script>
 '''
