@@ -1,4 +1,5 @@
 from pathlib import Path
+import runpy
 
 root=Path(__file__).parent
 index=root/'static'/'index.html'
@@ -56,3 +57,7 @@ if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
 print('Kai Wear full category stock-unit summary enabled.')
+
+clean_patch=root/'stock_clean_ui_patch.py'
+if clean_patch.exists():
+    runpy.run_path(str(clean_patch), run_name='__kai_stock_clean_ui_patch__')
