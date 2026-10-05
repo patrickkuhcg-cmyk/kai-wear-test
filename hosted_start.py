@@ -6,7 +6,11 @@ from http.server import ThreadingHTTPServer
 import server
 
 def apply_ui_patch():
-    for name, run_name in [('ui_patch.py','__kai_ui_patch__'),('stock_patch.py','__kai_stock_patch__')]:
+    for name, run_name in [
+        ('ui_patch.py','__kai_ui_patch__'),
+        ('stock_patch.py','__kai_stock_patch__'),
+        ('model_patch.py','__kai_model_patch__'),
+    ]:
         patch = Path(__file__).with_name(name)
         if patch.exists():
             runpy.run_path(str(patch), run_name=run_name)
