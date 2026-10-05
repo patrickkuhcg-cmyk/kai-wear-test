@@ -1,4 +1,5 @@
 from pathlib import Path
+import runpy
 
 root=Path(__file__).parent
 index=root/'static'/'index.html'
@@ -12,6 +13,7 @@ js=r'''
       if(typeof page==='undefined'||page!=='Stock'){
         document.getElementById('kai-inventory-intelligence')?.remove();
         document.getElementById('excel-dashboard-stock')?.remove();
+        document.getElementById('kai-stock-only-intel')?.remove();
       }
     }catch(_){ }
   }
@@ -36,4 +38,10 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear inventory intelligence and unit controls scoped to Stock page only.')
+
+# Apply the dedicated Stock-only intelligence layer after the cleanup scope.
+stock_only = root/'stock_only_intelligence_patch.py'
+if stock_only.exists():
+    runpy.run_path(str(stock_only), run_name='__kai_stock_only_intelligence_patch__')
+
+print('Kai Wear inventory intelligence removed from non-Stock pages and restored on Stock only.')
