@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 from http.server import ThreadingHTTPServer
 import server
 
+BUILD_LABEL='Inventory Model v3 · 05 Oct 2026'
+
 def apply_ui_patch():
     for name, run_name in [
         ('ui_patch.py','__kai_ui_patch__'),
@@ -14,6 +16,27 @@ def apply_ui_patch():
         patch = Path(__file__).with_name(name)
         if patch.exists():
             runpy.run_path(str(patch), run_name=run_name)
+
+
+def force_fresh_app_shell():
+    root=Path(__file__).parent
+    index=root/'static'/'index.html'
+    html=index.read_text()
+    marker='''<div id="kai-build-marker" style="position:fixed;right:12px;bottom:10px;z-index:9998;background:#0f2d38;color:#dff8ff;border:1px solid #2f6170;border-radius:999px;padding:5px 9px;font:600 10px/1.2 system-ui;box-shadow:0 2px 8px rgba(0,0,0,.12)">Inventory Model v3 · 05 Oct 2026</div>'''
+    if 'id="kai-build-marker"' not in html:
+        body_end=html.rfind('</body>')
+        if body_end>=0:
+            html=html[:body_end]+marker+'\n'+html[body_end:]
+    index.write_text(html)
+
+    sw=root/'static'/'sw.js'
+    sw.write_text("""const CACHE='kai-wear-inventory-model-v3-20261005';
+self.addEventListener('install',e=>{self.skipWaiting()});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
+self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;if(e.request.mode==='navigate'||u.pathname==='/'||u.pathname.endsWith('/index.html')){e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));return r}).catch(()=>caches.match('./index.html')));return;}e.respondWith(fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>caches.match(e.request)))});
+""")
+    print('Kai Wear fresh app shell enforced: '+BUILD_LABEL,flush=True)
+
 
 def bootstrap_owner():
     password=os.environ.get('KAI_OWNER_PASSWORD','')
@@ -27,15 +50,26 @@ def bootstrap_owner():
             c.execute('INSERT INTO users(name,salt,hash,role,display,shop,device) VALUES (?,?,?,?,?,?,?)',('owner',salt,server.password_hash(password,salt),'owner','Owner','all',None))
             server.audit(c,'owner','hosted_test_setup','Kai Wear sample workspace')
 
+
 class TestHandler(server.Handler):
+    def end_headers(self):
+        path=urlparse(self.path).path
+        if path in ('/','/index.html','/sw.js'):
+            self.send_header('Cache-Control','no-store, no-cache, must-revalidate, max-age=0')
+            self.send_header('Pragma','no-cache')
+            self.send_header('Expires','0')
+        return super().end_headers()
+
     def do_POST(self):
         if urlparse(self.path).path=='/api/setup':
             return self.send_json({'error':'Public setup is disabled. Sign in as owner using the password configured privately on the host.'},403)
         return super().do_POST()
 
+
 if __name__=='__main__':
     os.environ.setdefault('KAI_SECURE_COOKIE','1')
     apply_ui_patch()
+    force_fresh_app_shell()
     bootstrap_owner()
     port=int(os.environ.get('PORT',os.environ.get('KAI_PORT','8080')))
     print('Kai Wear disposable test server starting. No credentials are logged.',flush=True)
