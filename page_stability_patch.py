@@ -86,7 +86,7 @@ js=r'''
   const markBuild=()=>{
     removeOnlyLegacyTopStockBlocks();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v16.2.7 · Sale Catalogue Dropdown · 05 Oct 2026';
+    if(b)b.textContent='Kai Wear Management System v16.2.7 · Sale Catalogue Dropdown · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -104,4 +104,4 @@ wording_patch=root/'product_wording_patch.py'
 if wording_patch.exists():
     runpy.run_path(str(wording_patch),run_name='__kai_product_wording__')
 
-print('Kai Wear v16.2.7 enabled: full catalogue visible in New Sale dropdown; product wording applied; logic unchanged.')
+print('Kai Wear Management System v16.2.7 enabled: full catalogue visible in New Sale dropdown; product wording applied; logic unchanged.')
