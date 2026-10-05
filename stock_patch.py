@@ -27,9 +27,9 @@ css = r'''
 js = r'''
 <script id="kai-smart-stock-script">
 (()=>{
-  const ADULT_SIZES=['S','M','L','XL','XXL'];
-  const CHILD_SIZES=['2Y','3Y','4Y','5Y','6Y','7Y','8Y','9Y','10Y','11Y','12Y','13Y','14Y','15Y','16Y'];
-  const GRADES=['Replica','Original','Player version','Fan version','Training','Kids set'];
+  const ADULT_SIZES=['XS','S','M','L','XL','XXL','XXXL','4XL'];
+  const CHILD_SIZES=['Kids XS','Kids S','Kids M','Kids L','Kids XL','2Y','3Y','4Y','5Y','6Y','7Y','8Y','9Y','10Y','11Y','12Y','13Y','14Y','15Y','16Y'];
+  const GRADES=['Original','Fan/Net Version','Copy','Vintage','Player version','Replica','Training','Kids set','N/A'];
 
   function stockSearchText(p){
     return `${p.id||''} ${p.club||''} ${p.season||''} ${p.kit||''} ${p.color||''} ${p.size||''} ${p.grade||''}`.toLowerCase();
@@ -78,7 +78,7 @@ js = r'''
     const showPreview=()=>{
       if(!preview||!existing)return;
       const p=resolveExisting(existing.value);
-      if(!p){preview.innerHTML='<span class="stock-help">Search by club, code, size, colour, grade, kit or season, then choose the matching product.</span>';return;}
+      if(!p){preview.innerHTML='<span class="stock-help">Search by product, club, code, size, colour, grade/type, kit or season, then choose the matching item.</span>';return;}
       preview.innerHTML=`<strong>${esc(p.club||p.id)}</strong><br>${esc([p.id,p.size,p.grade,p.color,p.kit,p.season].filter(Boolean).join(' · '))}<br><b>${totalStock(p)}</b> units currently in stock`;
     };
     const redraw=()=>{
@@ -96,7 +96,7 @@ js = r'''
   // Stock display: quantities and product attributes only. No fixed cost/retail/wholesale columns.
   stockTable=function(){
     const pp=state.products.filter(p=>matches(p)&&(!stockGrade||p.grade===stockGrade)&&(!stockSize||p.size===stockSize));
-    $('#stock-table').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Product / jersey</th><th>Colour</th><th>Size</th><th>Grade / type</th><th class="end">Shop 1</th><th class="end">Shop 2</th><th class="end">Total units</th></tr></thead><tbody>${pp.map(p=>`<tr><td><span class="product-icon" aria-hidden="true">⚽</span>${esc(p.club)}<small>${esc([p.id,p.season,p.kit].filter(Boolean).join(' · '))}</small></td><td>${esc(p.color||'—')}</td><td><span class="badge">${esc(p.size||'—')}</span></td><td>${esc(p.grade||'—')}</td><td class="end">${qty(p,'Shop 1')}</td><td class="end">${qty(p,'Shop 2')}</td><td class="end stock-table-total">${totalStock(p)}</td></tr>`).join('')}</tbody></table></div>${!pp.length?'<div class="empty">No products match those filters.</div>':''}`;
+    $('#stock-table').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Product / variant</th><th>Colour</th><th>Size</th><th>Grade / type</th><th class="end">Shop 1</th><th class="end">Shop 2</th><th class="end">Total units</th></tr></thead><tbody>${pp.map(p=>`<tr><td><span class="product-icon" aria-hidden="true">⚽</span>${esc(p.club)}<small>${esc([p.id,p.season,p.kit].filter(Boolean).join(' · '))}</small></td><td>${esc(p.color||'—')}</td><td><span class="badge">${esc(p.size||'—')}</span></td><td>${esc(p.grade||'—')}</td><td class="end">${qty(p,'Shop 1')}</td><td class="end">${qty(p,'Shop 2')}</td><td class="end stock-table-total">${totalStock(p)}</td></tr>`).join('')}</tbody></table></div>${!pp.length?'<div class="empty">No products match those filters.</div>':''}`;
   };
 
   restock=function(){
@@ -104,7 +104,7 @@ js = r'''
     const hasProducts=products.length>0;
     const options=products.map(p=>`<option value="${esc(p.id)}">${esc([p.club,p.size,p.grade,p.color,p.kit,p.season].filter(Boolean).join(' · '))}</option>`).join('');
     showForm('Receive / add stock',`
-      <div class="full stock-smart-note"><b>Flexible stock receiving.</b><br>Products can have adult sizes, children sizes or any custom size/grade. Buying cost belongs to this delivery; selling price is entered later at the time of sale.</div>
+      <div class="full stock-smart-note"><b>Flexible stock receiving.</b><br>Products can use adult sizes, children sizes, age sizes or any custom size/grade. Buying cost belongs to this delivery; selling price is entered later at the time of sale.</div>
       <label class="full">What are you receiving?
         <select name="kind">
           <option value="existing" ${hasProducts?'selected':''}>Add to an existing product</option>
@@ -112,22 +112,22 @@ js = r'''
         </select>
       </label>
       <label class="full">Find existing product
-        <input name="existingSearch" list="kai-stock-products" type="text" placeholder="Search club, code, size, colour, grade…" autocomplete="off">
+        <input name="existingSearch" list="kai-stock-products" type="text" placeholder="Search product, club, code, size, colour, grade…" autocomplete="off">
         <datalist id="kai-stock-products">${options}</datalist>
         <div class="stock-help">Start typing, then choose the matching item.</div>
       </label>
       <div id="stock-existing-preview" class="full stock-preview"><span class="stock-help">Choose a product to see its current quantity.</span></div>
 
       <label data-stock-new>Product code <input name="newId" type="text" placeholder="Leave blank to auto-create"></label>
-      <label data-stock-new>Product / club / team <input name="club" type="text" placeholder="e.g. Arsenal jersey"></label>
-      <label data-stock-new>Season <input name="season" type="text" placeholder="e.g. 2026/27"></label>
-      <label data-stock-new>Kit / style <input name="kit" type="text" placeholder="Home / Away / Third / other"></label>
+      <label data-stock-new>Product / club / description <input name="club" type="text" placeholder="e.g. Arsenal home jersey, sports shorts, kids set"></label>
+      <label data-stock-new>Season <input name="season" type="text" placeholder="e.g. 2026/27 or N/A"></label>
+      <label data-stock-new>Kit / style <input name="kit" type="text" placeholder="Home / Away / Third / shorts / vest / other"></label>
       <label data-stock-new>Colour <input name="color" type="text" placeholder="e.g. Red"></label>
       <label data-stock-new>Size
         <select name="size">${sizeOptions()}</select>
-        <div class="stock-help">Adult and children sizes are included. Choose Other for anything else.</div>
+        <div class="stock-help">Adult, kids and age sizes are included. Choose Other for anything else.</div>
       </label>
-      <label data-stock-new class="stock-hidden">Custom size <input name="sizeCustom" type="text" placeholder="Type any size, e.g. 18-20, 3XL, 24"></label>
+      <label data-stock-new class="stock-hidden">Custom size <input name="sizeCustom" type="text" placeholder="Type any size, e.g. 18-20, 5XL, 24"></label>
       <label data-stock-new>Grade / type
         <select name="grade">${gradeOptions()}</select>
       </label>
@@ -141,7 +141,7 @@ js = r'''
         <input name="cost" type="number" min="0" step="1" placeholder="Cost for this delivery" required>
         <div class="stock-help">Used for profit accounting only. It is not a fixed product price.</div>
       </label>
-      <label class="full">Supplier / note <input name="note" type="text" placeholder="Optional supplier or stock note"></label>
+      <label class="full">Supplier / note <input name="note" type="text" placeholder="Optional supplier, payment status or stock note"></label>
     `,async f=>{
       const form=f instanceof HTMLFormElement?f:document.querySelector('#dialog-form');
       const v=Object.fromEntries(f),qty=Number(v.qty),cost=Number(v.cost);
@@ -151,7 +151,7 @@ js = r'''
       if(v.kind==='new'){
         const size=chosenFlexible(form,'size');
         const grade=chosenFlexible(form,'grade');
-        if(!String(v.club||'').trim())throw new Error('Enter the product / club / team');
+        if(!String(v.club||'').trim())throw new Error('Enter the product / club / description');
         if(!size)throw new Error('Choose or enter a size');
         if(!grade)throw new Error('Choose or enter a grade / type');
         id=String(v.newId||'').trim()||newStockCode(v.club,size);
@@ -196,4 +196,4 @@ if body_end < 0:
     raise RuntimeError('Final body tag not found')
 html = html[:body_end] + css + '\n' + js + '\n' + html[body_end:]
 index.write_text(html)
-print('Kai Wear flexible sizes, grades and quantity-focused stock display enabled.')
+print('Kai Wear broad sportswear variants and transaction-based stock pricing enabled.')
