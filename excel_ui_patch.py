@@ -19,9 +19,11 @@ js = r'''
 <script id="kai-excel-inventory-script">
 (()=>{
  const CATEGORIES=['Original Jerseys','Fan/Net Version Jerseys','Copy Jerseys','Vintage Jerseys',"Children's Jersey Sets",'Shorts','2-Piece Play Sets','Body Armour','Baseball Jerseys','Lakers/Basketball Vests','Plain Jumpers','Other Sportswear'];
- const VERSIONS=['Original','Fan/Net Version','Copy','Vintage','Player version','Replica','Training','Kids set','N/A'];
+ const VERSIONS=['Original','Fan/Net Version','Copy','Vintage','N/A'];
+ const SIZES=['XS','S','M','L','XL','XXL','XXXL','Kids S','Kids M','Kids L'];
  const KITS=['Home','Away','Third','N/A'];
  const STOCK_PAY=['Paid','Partially Paid','Unpaid'];
+ let excelStockCategory='';
  function totalUnits(p){return Object.values(p?.alloc||{}).reduce((a,v)=>a+Number(v||0),0)}
  function pName(p){return String(p.name||p.club||p.id||'Product')}
  function pCategory(p){if(p.category)return p.category;const g=String(p.grade||'');if(g==='Original')return 'Original Jerseys';if(g==='Fan/Net Version')return 'Fan/Net Version Jerseys';if(g==='Copy')return 'Copy Jerseys';if(g==='Vintage')return 'Vintage Jerseys';if(String(p.size||'').toLowerCase().includes('kid'))return "Children's Jersey Sets";return 'Other Sportswear'}
@@ -34,7 +36,7 @@ js = r'''
 
  stockTable=function(){
    const q=String(search||'').trim().toLowerCase();
-   const pp=(state.products||[]).filter(p=>(!q||searchText(p).includes(q))&&(!stockGrade||p.grade===stockGrade)&&(!stockSize||p.size===stockSize));
+   const pp=(state.products||[]).filter(p=>(!q||searchText(p).includes(q))&&(!excelStockCategory||pCategory(p)===excelStockCategory)&&(!stockGrade||p.grade===stockGrade)&&(!stockSize||p.size===stockSize));
    const total=pp.reduce((a,p)=>a+totalUnits(p),0), low=pp.filter(p=>stockStatus(p)==='RESTOCK').length, out=pp.filter(p=>stockStatus(p)==='OUT').length;
    $('#stock-table').innerHTML=`
      <div class="excel-stock-summary"><div class="excel-stock-kpi"><b>${total}</b><span>Units in current view</span></div><div class="excel-stock-kpi"><b>${pp.length}</b><span>Product variants</span></div><div class="excel-stock-kpi"><b>${low}</b><span>Need restocking</span></div><div class="excel-stock-kpi"><b>${out}</b><span>Out of stock</span></div></div>
@@ -46,7 +48,6 @@ js = r'''
  restock=function(){
    const products=state.products||[];
    const list=products.map(p=>`<option value="${esc(p.id)}">${esc([pName(p),p.category||pCategory(p),p.club,p.grade,p.kit,p.season,p.size].filter(Boolean).join(' · '))}</option>`).join('');
-   const sizes=['XS','S','M','L','XL','XXL','XXXL','4XL','Kids XS','Kids S','Kids M','Kids L','Kids XL','2Y','3Y','4Y','5Y','6Y','7Y','8Y','9Y','10Y','11Y','12Y','13Y','14Y','15Y','16Y'];
    showForm('Receive / add stock',`
     <div class="full note"><b>Excel-style inventory receiving.</b><br>Choose an existing product or create a new product variant. Buying cost belongs to this delivery only; selling price is entered at sale time.</div>
     <label class="full">Stock type<select name="kind"><option value="existing" ${products.length?'selected':''}>Existing product / variant</option><option value="new" ${products.length?'':'selected'}>New product / variant</option></select></label>
@@ -63,7 +64,7 @@ js = r'''
     <label data-excel-new data-custom-kit hidden>Custom kit / style<input name="kitCustom"></label>
     <label data-excel-new>Season<input name="season" placeholder="e.g. 2026/2027 or N/A"></label>
     <label data-excel-new>Colour<input name="color" placeholder="e.g. Red"></label>
-    <label data-excel-new>Size<select name="size"><option value="">Choose size</option>${optionList(sizes)}<option value="__custom__">Other / custom…</option></select></label>
+    <label data-excel-new>Size<select name="size"><option value="">Choose size</option>${optionList(SIZES)}<option value="__custom__">Other / custom…</option></select></label>
     <label data-excel-new data-custom-size hidden>Custom size<input name="sizeCustom" placeholder="Any supplier size"></label>
     <label data-excel-new>Minimum stock level<input name="minStock" type="number" min="0" step="1" value="5"></label>
     <div class="excel-form-section">Delivery / stock-in</div>
@@ -100,7 +101,25 @@ js = r'''
  function enhanceStockPage(){
    if(typeof page==='undefined'||page!=='Stock')return;
    const searchBox=document.querySelector('#search');if(searchBox)searchBox.placeholder='Search name, category, club/country, version, kit, season, size or code…';
-   const note=[...document.querySelectorAll('.note')].find(n=>n.textContent.includes('Stock is allocated'));if(note)note.innerHTML='<b>Flexible inventory model:</b> buying cost is captured per stock delivery; selling price is entered per sale. Product variants follow Category · Club/Country · Version · Kit · Season · Size. Minimum stock levels drive RESTOCK status.';
+   const filters=document.querySelector('.filters');
+   const grade=document.querySelector('#grade'),size=document.querySelector('#size');
+   if(filters&&!document.querySelector('#excel-category')){
+     const cat=document.createElement('select');cat.id='excel-category';cat.setAttribute('aria-label','Category');
+     cat.innerHTML='<option value="">All categories</option>'+optionList(CATEGORIES,excelStockCategory);
+     cat.value=excelStockCategory;cat.onchange=e=>{excelStockCategory=e.target.value;stockTable()};
+     if(grade)filters.insertBefore(cat,grade);else filters.appendChild(cat);
+   }
+   if(grade){
+     const extras=[...new Set((state.products||[]).map(p=>String(p.grade||'').trim()).filter(x=>x&&!VERSIONS.includes(x)))];
+     grade.innerHTML='<option value="">All versions / grades</option>'+optionList(VERSIONS,stockGrade)+extras.map(x=>`<option value="${esc(x)}" ${stockGrade===x?'selected':''}>${esc(x)} (custom)</option>`).join('');
+     grade.value=stockGrade;
+   }
+   if(size){
+     const extras=[...new Set((state.products||[]).map(p=>String(p.size||'').trim()).filter(x=>x&&!SIZES.includes(x)))];
+     size.innerHTML='<option value="">All sizes</option>'+optionList(SIZES,stockSize)+extras.map(x=>`<option value="${esc(x)}" ${stockSize===x?'selected':''}>${esc(x)} (custom)</option>`).join('');
+     size.value=stockSize;
+   }
+   const note=[...document.querySelectorAll('.note')].find(n=>n.textContent.includes('Stock is allocated'));if(note)note.innerHTML='<b>Excel inventory standards:</b> Category, Jersey Version and Size follow the workbook lists. Buying cost is captured per stock delivery; selling price is entered per sale. Custom values remain available when a supplier item falls outside the standard lists.';
    const h=[...document.querySelectorAll('h1,h2')].find(x=>x.textContent.trim()==='Jersey stock');if(h)h.textContent='Products & stock';
  }
  function excelDashboard(){
