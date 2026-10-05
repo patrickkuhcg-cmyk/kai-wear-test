@@ -104,4 +104,9 @@ wording_patch=root/'product_wording_patch.py'
 if wording_patch.exists():
     runpy.run_path(str(wording_patch),run_name='__kai_product_wording__')
 
-print('Kai Wear Management System v16.2.7 enabled: full catalogue visible in New Sale dropdown; product wording applied; logic unchanged.')
+# Branding-only pass: update the logo slogan while preserving the logo artwork.
+logo_slogan_patch=root/'logo_slogan_patch.py'
+if logo_slogan_patch.exists():
+    runpy.run_path(str(logo_slogan_patch),run_name='__kai_logo_slogan__')
+
+print('Kai Wear Management System v16.2.7 enabled: product wording and Wear Your Passion branding applied; logic unchanged.')
