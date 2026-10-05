@@ -16,6 +16,12 @@ catalogue_patch=root/'catalogue_zero_stock_patch.py'
 if catalogue_patch.exists():
     runpy.run_path(str(catalogue_patch),run_name='__kai_catalogue_zero_stock__')
 
+# New Sale should show the complete preserved catalogue in its search dropdown.
+# Zero-stock items remain unavailable for selling until stock is received.
+sale_catalogue_patch=root/'sale_catalogue_dropdown_patch.py'
+if sale_catalogue_patch.exists():
+    runpy.run_path(str(sale_catalogue_patch),run_name='__kai_sale_catalogue_dropdown__')
+
 html=index.read_text()
 
 css=r'''
@@ -80,7 +86,7 @@ js=r'''
   const markBuild=()=>{
     removeOnlyLegacyTopStockBlocks();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v16.2.6 · Catalogue Preserved / Zero Stock · 05 Oct 2026';
+    if(b)b.textContent='Excel Inventory Model v16.2.7 · Sale Catalogue Dropdown · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -91,4 +97,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v16.2.6 enabled: product catalogue preserved at zero stock; working Stock controls remain intact.')
+print('Kai Wear v16.2.7 enabled: full catalogue visible in New Sale dropdown; zero-stock sales remain blocked.')
