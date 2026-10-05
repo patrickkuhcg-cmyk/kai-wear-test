@@ -13,13 +13,16 @@ if stock_fix.exists():
 html=index.read_text()
 
 css=r'''
-<style id="kai-v16-2-legacy-stock-cleanup">
-#excel-dashboard-stock,#kai-inventory-intelligence{display:none!important}
+<style id="kai-v16-3-stock-cleanup">
+#excel-dashboard-stock,#kai-inventory-intelligence,#kai-category-summary{display:none!important}
+/* Retire the duplicate toolbar immediately below Stock search. The lower
+   working Stock controls/intelligence remain authoritative. */
+.kai-s16-toolbar{display:none!important}
 </style>
 '''
 
 js=r'''
-<script id="kai-render-architecture-v16-2">
+<script id="kai-render-architecture-v16-3">
 (()=>{
   if(typeof render!=='function'||typeof sync!=='function')return;
 
@@ -31,14 +34,18 @@ js=r'''
   let manualSyncUntil=0;
 
   const pageName=()=>String(typeof page==='undefined'?'':page);
-  const removeLegacyStockSummary=()=>{
+  const cleanStockDuplicates=()=>{
     document.getElementById('excel-dashboard-stock')?.remove();
     document.getElementById('kai-inventory-intelligence')?.remove();
-    if(pageName()==='Stock')document.querySelectorAll('.excel-stock-summary').forEach(el=>el.remove());
+    if(pageName()==='Stock'){
+      document.getElementById('kai-category-summary')?.remove();
+      document.querySelectorAll('.excel-stock-summary,.kai-s16-toolbar').forEach(el=>el.remove());
+    }
   };
   const emitRendered=()=>{
-    removeLegacyStockSummary();
+    cleanStockDuplicates();
     try{document.dispatchEvent(new CustomEvent('kai:rendered',{detail:{page:pageName()}}))}catch(_){ }
+    cleanStockDuplicates();
   };
 
   render=function(...args){
@@ -68,9 +75,9 @@ js=r'''
   },true);
 
   const markBuild=()=>{
-    removeLegacyStockSummary();
+    cleanStockDuplicates();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v16.2 · Stock Expand Fix · 05 Oct 2026';
+    if(b)b.textContent='Excel Inventory Model v16.3 · Clean Stock Controls · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -81,4 +88,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v16.2 enabled: View all stock renders a persistent full list and duplicate Stock intelligence is removed.')
+print('Kai Wear v16.3 enabled: duplicate top Stock toolbar and category summary removed.')
