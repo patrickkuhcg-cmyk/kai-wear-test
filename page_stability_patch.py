@@ -9,6 +9,13 @@ stock_fix=root/'stock_expand_fix_v16_2_patch.py'
 if stock_fix.exists():
     runpy.run_path(str(stock_fix),run_name='__kai_stock_expand_fix_v16_2__')
 
+# Preserve all existing product/variant catalogue entries after the clean reset.
+# Zero stock must not make those variants disappear from Stock intelligence,
+# search or Receive-stock dropdowns.
+catalogue_patch=root/'catalogue_zero_stock_patch.py'
+if catalogue_patch.exists():
+    runpy.run_path(str(catalogue_patch),run_name='__kai_catalogue_zero_stock__')
+
 html=index.read_text()
 
 css=r'''
@@ -73,7 +80,7 @@ js=r'''
   const markBuild=()=>{
     removeOnlyLegacyTopStockBlocks();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v16.2.4 · Source-Level Stock Cleanup · 05 Oct 2026';
+    if(b)b.textContent='Excel Inventory Model v16.2.6 · Catalogue Preserved / Zero Stock · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -84,4 +91,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v16.2.4 enabled: obsolete duplicate Stock control generator retired at source; working v16.2 controls remain intact.')
+print('Kai Wear v16.2.6 enabled: product catalogue preserved at zero stock; working Stock controls remain intact.')
