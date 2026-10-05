@@ -5,7 +5,7 @@ index=root/'static'/'index.html'
 html=index.read_text()
 
 js=r'''
-<script id="kai-render-architecture-v15">
+<script id="kai-render-architecture-v15-2">
 (()=>{
   if(typeof render!=='function'||typeof sync!=='function')return;
 
@@ -69,7 +69,7 @@ js=r'''
   // or restores a saved page position. Native browser scrolling is authoritative.
   const markBuild=()=>{
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v15 · Single Runtime Stability · 05 Oct 2026';
+    if(b)b.textContent='Excel Inventory Model v15.2 · Stable Stock Controls · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -80,4 +80,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v15 single-runtime stability enabled: base sync bypasses legacy scroll wrappers; automatic sync is data-only system-wide.')
+print('Kai Wear v15.2 single-runtime stability enabled with stable Stock controls restored.')
