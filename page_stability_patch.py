@@ -14,7 +14,6 @@ html=index.read_text()
 css=r'''
 <style id="kai-v16-2-legacy-stock-cleanup">
 #excel-dashboard-stock,#kai-inventory-intelligence{display:none!important}
-/* These are the two obsolete blocks directly below the Stock search/filter row. */
 #kai-stock-compact-bar,#kai-category-summary{display:none!important}
 </style>
 '''
@@ -40,18 +39,9 @@ js=r'''
     document.getElementById('kai-stock-compact-bar')?.remove();
     document.getElementById('kai-category-summary')?.remove();
   };
-  const scheduleLegacyCleanup=()=>{
-    removeOnlyLegacyTopStockBlocks();
-    // Older Stock helpers create these two blocks on a delayed post-render pass.
-    // Remove only those exact IDs after that pass, leaving v16.2 controls intact.
-    setTimeout(removeOnlyLegacyTopStockBlocks,0);
-    setTimeout(removeOnlyLegacyTopStockBlocks,40);
-    setTimeout(removeOnlyLegacyTopStockBlocks,140);
-  };
   const emitRendered=()=>{
-    scheduleLegacyCleanup();
+    removeOnlyLegacyTopStockBlocks();
     try{document.dispatchEvent(new CustomEvent('kai:rendered',{detail:{page:pageName()}}))}catch(_){ }
-    scheduleLegacyCleanup();
   };
 
   render=function(...args){
@@ -81,9 +71,9 @@ js=r'''
   },true);
 
   const markBuild=()=>{
-    scheduleLegacyCleanup();
+    removeOnlyLegacyTopStockBlocks();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v16.2.3 · Exact Two-Block Cleanup · 05 Oct 2026';
+    if(b)b.textContent='Excel Inventory Model v16.2.4 · Source-Level Stock Cleanup · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -94,4 +84,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v16.2.3 enabled: only delayed legacy Stock compact bar and category summary are removed; lower working controls stay intact.')
+print('Kai Wear v16.2.4 enabled: obsolete duplicate Stock control generator retired at source; working v16.2 controls remain intact.')
