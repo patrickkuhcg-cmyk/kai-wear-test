@@ -12,7 +12,7 @@ if SERVER_PATCH.exists():
 import server
 from stock_importer import parse as parse_stock_file
 
-BUILD_LABEL='Excel Inventory Model v15 · Single Runtime Stability · 05 Oct 2026'
+BUILD_LABEL='Excel Inventory Model v15.1 · Flat Runtime Stability · 05 Oct 2026'
 
 def apply_ui_patch():
     for name, run_name in [
@@ -25,7 +25,8 @@ def apply_ui_patch():
         ('stock_clean_ui_patch.py','__kai_stock_clean_ui_patch__'),
         ('stock_scope_cleanup_patch.py','__kai_stock_scope_cleanup_patch__'),
         ('stock_full_view_patch.py','__kai_stock_full_view_patch__'),
-        ('page_stability_patch.py','__kai_page_stability_v15__'),
+        ('runtime_cleanup_patch.py','__kai_runtime_cleanup__'),
+        ('page_stability_patch.py','__kai_page_stability_v15_1__'),
     ]:
         patch = ROOT/name
         if patch.exists():
@@ -46,7 +47,7 @@ def force_fresh_app_shell():
     index.write_text(html)
 
     sw=ROOT/'static'/'sw.js'
-    sw.write_text("""const CACHE='kai-wear-excel-inventory-v15-single-runtime-20261005';
+    sw.write_text("""const CACHE='kai-wear-excel-inventory-v15-1-flat-runtime-20261005';
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;if(e.request.mode==='navigate'||u.pathname==='/'||u.pathname.endsWith('/index.html')){e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));return r}).catch(()=>caches.match('./index.html')));return;}e.respondWith(fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>caches.match(e.request)))});
