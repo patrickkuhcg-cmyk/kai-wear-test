@@ -12,7 +12,7 @@ if SERVER_PATCH.exists():
 import server
 from stock_importer import parse as parse_stock_file
 
-BUILD_LABEL='Excel Inventory Model v7 · Category Units · 05 Oct 2026'
+BUILD_LABEL='Excel Inventory Model v8 · Stable Sync · 05 Oct 2026'
 
 def apply_ui_patch():
     for name, run_name in [
@@ -22,6 +22,7 @@ def apply_ui_patch():
         ('excel_ui_patch.py','__kai_excel_ui_patch__'),
         ('stock_upload_ui_patch.py','__kai_stock_upload_ui_patch__'),
         ('stock_category_summary_patch.py','__kai_stock_category_summary_patch__'),
+        ('interaction_sync_patch.py','__kai_interaction_sync_patch__'),
     ]:
         patch = ROOT/name
         if patch.exists():
@@ -42,7 +43,7 @@ def force_fresh_app_shell():
     index.write_text(html)
 
     sw=ROOT/'static'/'sw.js'
-    sw.write_text("""const CACHE='kai-wear-excel-inventory-v7-category-units-20261005';
+    sw.write_text("""const CACHE='kai-wear-excel-inventory-v8-stable-sync-20261005';
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;if(e.request.mode==='navigate'||u.pathname==='/'||u.pathname.endsWith('/index.html')){e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));return r}).catch(()=>caches.match('./index.html')));return;}e.respondWith(fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>caches.match(e.request)))});
