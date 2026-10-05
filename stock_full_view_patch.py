@@ -1,4 +1,5 @@
 from pathlib import Path
+import runpy
 
 root=Path(__file__).parent
 index=root/'static'/'index.html'
@@ -59,4 +60,10 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear always-visible View all stock / Expand control enabled.')
+
+# Consolidated page stability is applied last so it governs all earlier UI wrappers.
+stability=root/'page_stability_patch.py'
+if stability.exists():
+    runpy.run_path(str(stability),run_name='__kai_page_stability_patch__')
+
+print('Kai Wear always-visible View all stock / Expand control enabled with consolidated page stability.')
