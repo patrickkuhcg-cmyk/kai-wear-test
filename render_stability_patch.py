@@ -14,26 +14,31 @@ js = r'''
   let idleTimer=null;
   let pointerActive=false;
   let touchActive=false;
-  let lastWindowY=window.scrollY;
+  let forceNavigationRender=false;
 
   function activeControl(){
     const el=document.activeElement;
     if(!el||el===document.body)return false;
     return !!el.closest('input,textarea,select,[role="combobox"],[contenteditable="true"],dialog');
   }
+  function isNavigationTarget(target){
+    const el=target?.closest?.('button,a,[data-page],[data-nav]');
+    if(!el)return false;
+    if(el.closest('nav,aside,.sidebar,.nav,.menu'))return true;
+    const t=(el.textContent||'').trim().toLowerCase();
+    return /^(dashboard|new sale|sales|stock|inventory|purchases|expenses|credit|reports|admin|users|settings|suppliers|cash|receipts)$/.test(t);
+  }
   function snapshotScroll(){
     const snap={windowY:window.scrollY,els:[]};
-    document.querySelectorAll('*').forEach((el,i)=>{
-      if(el.scrollHeight>el.clientHeight+4||el.scrollWidth>el.clientWidth+4){
-        if(el.scrollTop||el.scrollLeft) snap.els.push([el,i,el.scrollTop,el.scrollLeft]);
-      }
+    document.querySelectorAll('.sale-search-dropdown,.table-wrap,.table-scroll,.scrollable,[data-kai-scroll],dialog').forEach(el=>{
+      if(el.scrollTop||el.scrollLeft)snap.els.push([el,el.scrollTop,el.scrollLeft]);
     });
     return snap;
   }
   function restoreScroll(snap){
     requestAnimationFrame(()=>{
       window.scrollTo(0,snap.windowY);
-      for(const [oldEl,,top,left] of snap.els){
+      for(const [oldEl,top,left] of snap.els){
         if(document.contains(oldEl)){oldEl.scrollTop=top;oldEl.scrollLeft=left;}
       }
     });
@@ -49,10 +54,18 @@ js = r'''
   function markInteraction(ms=3000){
     interactionUntil=Math.max(interactionUntil,Date.now()+ms);
     if(idleTimer)clearTimeout(idleTimer);
-    idleTimer=setTimeout(flushRender,ms+120);
+    idleTimer=setTimeout(flushRender,ms+100);
   }
 
   render=function(...args){
+    if(forceNavigationRender){
+      forceNavigationRender=false;
+      renderPending=false;
+      interactionUntil=0;
+      const out=coreRender(...args);
+      requestAnimationFrame(()=>window.scrollTo(0,0));
+      return out;
+    }
     if(pointerActive||touchActive||activeControl()||Date.now()<interactionUntil){
       renderPending=true;
       return;
@@ -63,22 +76,31 @@ js = r'''
     return out;
   };
 
-  window.addEventListener('scroll',()=>{lastWindowY=window.scrollY;markInteraction(3500)},{passive:true,capture:true});
-  document.addEventListener('wheel',()=>markInteraction(3500),{passive:true,capture:true});
-  document.addEventListener('touchstart',()=>{touchActive=true;markInteraction(4500)},{passive:true,capture:true});
-  document.addEventListener('touchmove',()=>markInteraction(4500),{passive:true,capture:true});
-  document.addEventListener('touchend',()=>{touchActive=false;markInteraction(1800)},{passive:true,capture:true});
-  document.addEventListener('pointerdown',()=>{pointerActive=true;markInteraction(3000)},true);
-  document.addEventListener('pointerup',()=>{pointerActive=false;markInteraction(1200)},true);
-  document.addEventListener('input',()=>markInteraction(3000),true);
-  document.addEventListener('keydown',()=>markInteraction(2500),true);
-  document.addEventListener('focusin',()=>markInteraction(2200),true);
-  document.addEventListener('focusout',()=>setTimeout(flushRender,500),true);
-  document.addEventListener('change',()=>setTimeout(flushRender,700),true);
+  // Intentional feature/menu navigation must be immediate. Mark it in the
+  // capture phase so the app's existing click handler can call render() right away.
+  document.addEventListener('click',e=>{
+    if(isNavigationTarget(e.target)){
+      forceNavigationRender=true;
+      pointerActive=false;
+      touchActive=false;
+      interactionUntil=0;
+    }
+  },true);
 
-  // Fallback: if a render is pending but interaction events stop firing,
-  // flush once the user has been idle long enough.
-  setInterval(flushRender,1500);
+  window.addEventListener('scroll',()=>markInteraction(1200),{passive:true,capture:true});
+  document.addEventListener('wheel',()=>markInteraction(1200),{passive:true,capture:true});
+  document.addEventListener('touchstart',()=>{touchActive=true;markInteraction(1600)},{passive:true,capture:true});
+  document.addEventListener('touchmove',()=>markInteraction(1600),{passive:true,capture:true});
+  document.addEventListener('touchend',()=>{touchActive=false;markInteraction(500)},{passive:true,capture:true});
+  document.addEventListener('pointerdown',e=>{if(!isNavigationTarget(e.target)){pointerActive=true;markInteraction(900)}},true);
+  document.addEventListener('pointerup',e=>{pointerActive=false;if(!isNavigationTarget(e.target))markInteraction(350)},true);
+  document.addEventListener('input',()=>markInteraction(1200),true);
+  document.addEventListener('keydown',()=>markInteraction(900),true);
+  document.addEventListener('focusin',()=>markInteraction(700),true);
+  document.addEventListener('focusout',()=>setTimeout(flushRender,180),true);
+  document.addEventListener('change',()=>setTimeout(flushRender,220),true);
+
+  setInterval(flushRender,800);
 })();
 </script>
 '''
@@ -88,4 +110,4 @@ if body_end < 0:
     raise RuntimeError('Final body tag not found')
 html = html[:body_end] + js + '\n' + html[body_end:]
 index.write_text(html)
-print('Kai Wear render stability guard enabled: page re-rendering deferred during scrolling and active controls.')
+print('Kai Wear render stability enabled with instant dashboard navigation.')
