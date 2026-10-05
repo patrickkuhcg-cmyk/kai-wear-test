@@ -1,5 +1,4 @@
 from pathlib import Path
-import runpy
 
 root=Path(__file__).parent
 index=root/'static'/'index.html'
@@ -39,7 +38,7 @@ js=r'''
    controls.innerHTML=`<button type="button" id="kai-force-view-all">${fullOpen?'Full stock list open':'View all stock / Expand'}</button>${fullOpen?'<button type="button" class="secondary" id="kai-force-collapse">Collapse full stock</button>':''}`;
    controls.querySelector('#kai-force-view-all').onclick=()=>{
      fullOpen=true;resetVisibleFilters();
-     setTimeout(()=>{const h=document.querySelector('#stock-table');h?.classList.add('kai-force-full-stock');applyFullView();h?.scrollIntoView({behavior:'smooth',block:'start'})},80);
+     const h=document.querySelector('#stock-table');if(h)h.classList.add('kai-force-full-stock');applyFullView();
    };
    controls.querySelector('#kai-force-collapse')?.addEventListener('click',()=>{fullOpen=false;host.classList.remove('kai-force-full-stock');applyFullView()});
  }
@@ -60,10 +59,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-
-# Consolidated page stability is applied last so it governs all earlier UI wrappers.
-stability=root/'page_stability_patch.py'
-if stability.exists():
-    runpy.run_path(str(stability),run_name='__kai_page_stability_patch__')
-
-print('Kai Wear always-visible View all stock / Expand control enabled with consolidated page stability.')
+print('Kai Wear always-visible View all stock / Expand control enabled without duplicate stability injection or forced scrolling.')
