@@ -1,4 +1,5 @@
 from pathlib import Path
+import runpy
 
 root=Path(__file__).parent
 index=root/'static'/'index.html'
@@ -129,3 +130,9 @@ replace(
 
 index.write_text(html)
 print(f'Kai Wear runtime cleanup flattened {changes} delayed UI wrapper group(s).')
+
+# Restore the Stock-only controls after flattening. This patch only subscribes
+# to the single kai:rendered signal; it does not wrap global render or sync.
+stable_stock=root/'stock_stable_controls_patch.py'
+if stable_stock.exists():
+    runpy.run_path(str(stable_stock),run_name='__kai_stock_stable_controls__')
