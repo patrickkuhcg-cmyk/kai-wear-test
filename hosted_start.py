@@ -12,7 +12,8 @@ if SERVER_PATCH.exists():
 import server
 from stock_importer import parse as parse_stock_file
 
-BUILD_LABEL='Excel Inventory Model v16.2.4 · Source-Level Stock Cleanup · 05 Oct 2026'
+BUILD_LABEL='Excel Inventory Model v16.2.5 · Clean Zero Start · 05 Oct 2026'
+RESET_VERSION='kai-clean-zero-start-20261005-v1'
 
 def apply_ui_patch():
     # Flat architecture: each subsystem is loaded once. Stock is owned by the
@@ -45,12 +46,64 @@ def force_fresh_app_shell():
     index.write_text(html)
 
     sw=ROOT/'static'/'sw.js'
-    sw.write_text("""const CACHE='kai-wear-excel-inventory-v16-2-4-source-stock-cleanup-20261005';
+    sw.write_text("""const CACHE='kai-wear-excel-inventory-v16-2-5-clean-zero-start-20261005';
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/'))return;if(e.request.mode==='navigate'||u.pathname==='/'||u.pathname.endsWith('/index.html')){e.respondWith(fetch(e.request,{cache:'no-store'}).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put('./index.html',copy));return r}).catch(()=>caches.match('./index.html')));return;}e.respondWith(fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>caches.match(e.request)))});
 """)
     print('Kai Wear fresh app shell enforced: '+BUILD_LABEL,flush=True)
+
+
+def reset_business_data_once():
+    """Create a clean business starting point exactly once.
+
+    Accounts/access and the product catalogue are preserved. Stock quantities,
+    weighted costs, and transaction/history collections are reset. The marker
+    prevents later restarts/deploys from wiping newly entered business data.
+    """
+    with server.LOCK:
+        with server.conn() as c:
+            row=c.execute('SELECT payload FROM state WHERE id=1').fetchone()
+            if not row:
+                return
+            data=json.loads(row[0])
+            if data.get('_cleanStartVersion')==RESET_VERSION:
+                return
+
+            # Preserve product identity/category metadata, but start inventory
+            # and accounting cost values at zero.
+            for p in data.get('products',[]):
+                alloc=p.get('alloc')
+                if isinstance(alloc,dict):
+                    p['alloc']={k:0 for k in alloc.keys()}
+                p['cost']=0
+                if 'retail' in p:p['retail']=0
+                if 'wholesale' in p:p['wholesale']=0
+
+            # Clear operational records while leaving settings/access intact.
+            transaction_lists=(
+                'sales','movements','expenses','payments','creditPayments',
+                'credits','receipts','cashups','cashReconciliations',
+                'reconciliations','stockAdjustments','adjustments','returns',
+                'refunds','transfers','taxEntries','taxPayments'
+            )
+            for key in transaction_lists:
+                if isinstance(data.get(key),list):
+                    data[key]=[]
+
+            # Any direct numeric opening balances should start at zero if they
+            # exist in this build. Do not alter tax-rate/settings structures.
+            for key in ('openingCash','openingBalance','cashBalance','creditBalance'):
+                if key in data and isinstance(data[key],(int,float)):
+                    data[key]=0
+
+            data['_cleanStartVersion']=RESET_VERSION
+            data['revision']=int(data.get('revision',0))+1
+            c.execute('UPDATE state SET payload=? WHERE id=1',(json.dumps(data),))
+            server.audit(c,'owner','clean_start_reset','Business records reset to zero; accounts and product catalogue preserved')
+    try:server.notify()
+    except Exception:pass
+    print('Kai Wear clean zero start applied once: stock and business records reset; accounts preserved.',flush=True)
 
 
 def bootstrap_owner():
@@ -61,6 +114,7 @@ def bootstrap_owner():
     if hasattr(server,'migrate_excel_inventory_state'):
         server.migrate_excel_inventory_state()
         print('Kai Wear legacy sample products normalized to Excel category, version and size standards.',flush=True)
+    reset_business_data_once()
     with server.conn() as c:
         c.execute('BEGIN IMMEDIATE')
         if not c.execute('SELECT 1 FROM users').fetchone():
