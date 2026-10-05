@@ -13,15 +13,16 @@ css=r'''
 .kai-stock-option:last-child{border-bottom:0}.kai-stock-option:hover,.kai-stock-option:focus{background:#f5fbfc;outline:none}.kai-stock-option b{display:block;font-size:12px}.kai-stock-option small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
 .kai-stock-compact-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0 12px;padding:10px 12px;border:1px solid #dce9ed;border-radius:11px;background:#f9fcfd}
 .kai-stock-compact-metrics{display:flex;gap:14px;flex-wrap:wrap}.kai-stock-compact-metrics span{font-size:11px;color:var(--muted)}.kai-stock-compact-metrics b{font-size:14px;color:#173f4a;margin-right:4px}
+.kai-stock-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .kai-stock-toggle{border:1px solid #cfe0e4;background:#fff;border-radius:8px;padding:7px 10px;font-weight:700;font-size:11px;cursor:pointer}
-.kai-stock-toggle:hover{background:#f4fafb}
+.kai-stock-toggle:hover{background:#f4fafb}.kai-stock-toggle.primary{background:#173f4a;color:#fff;border-color:#173f4a}.kai-stock-toggle.primary:hover{background:#214f5c}
 #stock-table.kai-stock-collapsed .table-wrap,#stock-table.kai-stock-collapsed>.empty{display:none!important}
 #stock-table.kai-stock-collapsed .excel-stock-summary{display:none!important}
 #kai-category-summary.kai-category-collapsed .kai-category-grid{display:none!important}
 #kai-category-summary.kai-category-collapsed .kai-category-summary-head{border-bottom:0}
 #kai-category-summary .kai-category-summary-head{cursor:default}
 #kai-category-summary .kai-category-summary-head>strong{display:none}
-@media(max-width:700px){#kai-stock-search-wrap{min-width:100%;width:100%}.kai-stock-compact-bar{align-items:flex-start}.kai-stock-compact-metrics{gap:8px 12px}}
+@media(max-width:700px){#kai-stock-search-wrap{min-width:100%;width:100%}.kai-stock-compact-bar{align-items:flex-start}.kai-stock-compact-metrics{gap:8px 12px}.kai-stock-actions{width:100%}.kai-stock-actions .kai-stock-toggle{flex:1 1 auto}}
 </style>
 '''
 
@@ -33,7 +34,6 @@ js=r'''
  let stockSearchFocus=-1;
 
  function stockText(p){return [p.id,p.name,p.category,p.club,p.grade,p.kit,p.season,p.size,p.color].filter(Boolean).join(' ').toLowerCase()}
- function stockLabel(p){return [p.name||p.club||p.id,p.category,p.grade,p.kit,p.season,p.size].filter(Boolean).join(' · ')}
  function totalUnitsOf(p){return Object.values(p?.alloc||{}).reduce((a,v)=>a+Number(v||0),0)}
  function getMatches(q){
    q=String(q||'').trim().toLowerCase();
@@ -71,6 +71,20 @@ js=r'''
    });
    document.addEventListener('pointerdown',e=>{if(page==='Stock'&&!wrap.contains(e.target))closeStockDrop()},true);
  }
+ function clearAllStockFilters(){
+   search='';excelStockCategory='';stockGrade='';stockSize='';
+   const input=document.querySelector('#search');if(input)input.value='';
+   const cat=document.querySelector('#excel-category');if(cat)cat.value='';
+   const grade=document.querySelector('#grade');if(grade)grade.value='';
+   const size=document.querySelector('#size');if(size)size.value='';
+   closeStockDrop();
+ }
+ function openFullStock(){
+   clearAllStockFilters();
+   stockDetailsOpen=true;
+   stockTable();
+   setTimeout(()=>document.querySelector('#stock-table')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+ }
  function compactStock(){
    if(typeof page==='undefined'||page!=='Stock')return;
    const host=document.querySelector('#stock-table');if(!host)return;
@@ -84,7 +98,8 @@ js=r'''
    const low=products.filter(p=>{const q=totalUnitsOf(p),m=Number(p.minStock||5);return q>0&&q<=m}).length;
    const out=products.filter(p=>totalUnitsOf(p)===0).length;
    if(!bar){bar=document.createElement('div');bar.id='kai-stock-compact-bar';bar.className='kai-stock-compact-bar';host.parentNode.insertBefore(bar,host)}
-   bar.innerHTML=`<div class="kai-stock-compact-metrics"><span><b>${units}</b>units</span><span><b>${products.length}</b>variants</span><span><b>${low}</b>restock</span><span><b>${out}</b>out</span></div><button type="button" id="kai-stock-detail-toggle" class="kai-stock-toggle">${stockDetailsOpen?'Hide stock details':'Show stock details'}</button>`;
+   bar.innerHTML=`<div class="kai-stock-compact-metrics"><span><b>${units}</b>units</span><span><b>${products.length}</b>variants</span><span><b>${low}</b>restock</span><span><b>${out}</b>out</span></div><div class="kai-stock-actions"><button type="button" id="kai-view-all-stock" class="kai-stock-toggle primary">View all stock</button><button type="button" id="kai-stock-detail-toggle" class="kai-stock-toggle">${stockDetailsOpen?'Collapse stock list':'Show stock details'}</button></div>`;
+   bar.querySelector('#kai-view-all-stock').onclick=openFullStock;
    bar.querySelector('#kai-stock-detail-toggle').onclick=()=>{stockDetailsOpen=!stockDetailsOpen;compactStock()};
  }
  function compactCategories(){
@@ -118,4 +133,4 @@ pos=html.rfind('</body>')
 if pos<0: raise RuntimeError('Final body tag not found')
 html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear clean stock page enabled: anchored search dropdown and collapsible stock/category displays.')
+print('Kai Wear clean stock page enabled: anchored search dropdown, View all stock, and collapsible displays.')
