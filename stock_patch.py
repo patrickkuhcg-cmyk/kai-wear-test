@@ -4,6 +4,13 @@ root = Path(__file__).parent
 index = root / 'static' / 'index.html'
 html = index.read_text()
 
+# Replace the old fixed-price stock note with the flexible inventory rule.
+html = html.replace(
+    'Stock is allocated to counters for safe offline selling. Receiving stock adds new units to the chosen counter. Unit cost is fixed per variant in v1; historical sale costs are kept on receipts.',
+    'Stock is allocated to counters for safe offline selling. Buying cost is entered when stock is received; selling price is entered when the item is sold. Prices are not fixed to a product.',
+    1
+)
+
 css = r'''
 <style id="kai-smart-stock-style">
 .stock-smart-note{padding:11px 12px;border:1px solid #dce9ed;border-radius:10px;background:#f8fcfd;color:#315763;line-height:1.45}
@@ -13,12 +20,17 @@ css = r'''
 .stock-new-fields{display:contents}
 .stock-hidden{display:none!important}
 .stock-help{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}
+.stock-table-total{font-weight:800;color:#173f4a}
 </style>
 '''
 
 js = r'''
 <script id="kai-smart-stock-script">
 (()=>{
+  const ADULT_SIZES=['S','M','L','XL','XXL'];
+  const CHILD_SIZES=['2Y','3Y','4Y','5Y','6Y','7Y','8Y','9Y','10Y','11Y','12Y','13Y','14Y','15Y','16Y'];
+  const GRADES=['Replica','Original','Player version','Fan version','Training','Kids set'];
+
   function stockSearchText(p){
     return `${p.id||''} ${p.club||''} ${p.season||''} ${p.kit||''} ${p.color||''} ${p.size||''} ${p.grade||''}`.toLowerCase();
   }
@@ -33,9 +45,18 @@ js = r'''
     const matches=(state.products||[]).filter(p=>stockSearchText(p).includes(q));
     return matches.length===1?matches[0]:null;
   }
-  function referenceNote(base,ref){
-    const clean=String(base||'Stock received').trim()||'Stock received';
-    return ref>0?`${clean} · Reference sale price UGX ${Math.round(ref).toLocaleString()} (not fixed)`:clean;
+  function option(value,label=value){return `<option value="${esc(value)}">${esc(label)}</option>`}
+  function sizeOptions(){
+    return '<option value="">Choose size</option><optgroup label="Adult sizes">'+ADULT_SIZES.map(x=>option(x)).join('')+'</optgroup><optgroup label="Children sizes">'+CHILD_SIZES.map(x=>option(x)).join('')+'</optgroup><option value="__custom__">Other / custom size…</option>';
+  }
+  function gradeOptions(){
+    return '<option value="">Choose grade / type</option>'+GRADES.map(x=>option(x)).join('')+'<option value="__custom__">Other / custom grade…</option>';
+  }
+  function chosenFlexible(form,name){
+    const select=form.querySelector(`[name="${name}"]`);
+    if(!select)return '';
+    if(select.value==='__custom__')return String(form.querySelector(`[name="${name}Custom"]`)?.value||'').trim();
+    return String(select.value||'').trim();
   }
   function setupSmartStockForm(){
     const form=document.querySelector('#dialog-form');
@@ -45,6 +66,21 @@ js = r'''
     const newFields=[...form.querySelectorAll('[data-stock-new]')];
     const preview=form.querySelector('#stock-existing-preview');
     if(!kind)return;
+
+    const wireCustom=(name)=>{
+      const select=form.querySelector(`[name="${name}"]`), custom=form.querySelector(`[name="${name}Custom"]`);
+      if(!select||!custom)return;
+      const refresh=()=>custom.closest('label')?.classList.toggle('stock-hidden',select.value!=='__custom__');
+      select.addEventListener('change',refresh);refresh();
+    };
+    wireCustom('size');wireCustom('grade');
+
+    const showPreview=()=>{
+      if(!preview||!existing)return;
+      const p=resolveExisting(existing.value);
+      if(!p){preview.innerHTML='<span class="stock-help">Search by club, code, size, colour, grade, kit or season, then choose the matching product.</span>';return;}
+      preview.innerHTML=`<strong>${esc(p.club||p.id)}</strong><br>${esc([p.id,p.size,p.grade,p.color,p.kit,p.season].filter(Boolean).join(' · '))}<br><b>${totalStock(p)}</b> units currently in stock`;
+    };
     const redraw=()=>{
       const isNew=kind.value==='new';
       newFields.forEach(el=>el.classList.toggle('stock-hidden',!isNew));
@@ -52,23 +88,23 @@ js = r'''
       if(preview)preview.classList.toggle('stock-hidden',isNew);
       if(!isNew&&existing)showPreview();
     };
-    const showPreview=()=>{
-      if(!preview||!existing)return;
-      const p=resolveExisting(existing.value);
-      if(!p){preview.innerHTML='<span class="stock-help">Search by club, code, size, colour, grade, kit or season, then choose the matching product.</span>';return;}
-      preview.innerHTML=`<strong>${esc(p.club||p.id)}</strong><br>${esc([p.id,p.size,p.grade,p.color,p.kit,p.season].filter(Boolean).join(' · '))}<br><b>${totalStock(p)}</b> units currently in stock · Average buying cost: <b>${money(p.cost||0)}</b>`;
-    };
     kind.onchange=redraw;
     if(existing){existing.oninput=showPreview;existing.onchange=showPreview;}
     redraw();
   }
+
+  // Stock display: quantities and product attributes only. No fixed cost/retail/wholesale columns.
+  stockTable=function(){
+    const pp=state.products.filter(p=>matches(p)&&(!stockGrade||p.grade===stockGrade)&&(!stockSize||p.size===stockSize));
+    $('#stock-table').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Product / jersey</th><th>Colour</th><th>Size</th><th>Grade / type</th><th class="end">Shop 1</th><th class="end">Shop 2</th><th class="end">Total units</th></tr></thead><tbody>${pp.map(p=>`<tr><td><span class="product-icon" aria-hidden="true">⚽</span>${esc(p.club)}<small>${esc([p.id,p.season,p.kit].filter(Boolean).join(' · '))}</small></td><td>${esc(p.color||'—')}</td><td><span class="badge">${esc(p.size||'—')}</span></td><td>${esc(p.grade||'—')}</td><td class="end">${qty(p,'Shop 1')}</td><td class="end">${qty(p,'Shop 2')}</td><td class="end stock-table-total">${totalStock(p)}</td></tr>`).join('')}</tbody></table></div>${!pp.length?'<div class="empty">No products match those filters.</div>':''}`;
+  };
 
   restock=function(){
     const products=state.products||[];
     const hasProducts=products.length>0;
     const options=products.map(p=>`<option value="${esc(p.id)}">${esc([p.club,p.size,p.grade,p.color,p.kit,p.season].filter(Boolean).join(' · '))}</option>`).join('');
     showForm('Receive / add stock',`
-      <div class="full stock-smart-note"><b>Flexible stock receiving.</b><br>Buying cost is entered for this delivery only. Selling price is not fixed in Stock — the cashier enters the actual selling price when making a sale.</div>
+      <div class="full stock-smart-note"><b>Flexible stock receiving.</b><br>Products can have adult sizes, children sizes or any custom size/grade. Buying cost belongs to this delivery; selling price is entered later at the time of sale.</div>
       <label class="full">What are you receiving?
         <select name="kind">
           <option value="existing" ${hasProducts?'selected':''}>Add to an existing product</option>
@@ -80,46 +116,53 @@ js = r'''
         <datalist id="kai-stock-products">${options}</datalist>
         <div class="stock-help">Start typing, then choose the matching item.</div>
       </label>
-      <div id="stock-existing-preview" class="full stock-preview"><span class="stock-help">Choose a product to see current stock and average buying cost.</span></div>
+      <div id="stock-existing-preview" class="full stock-preview"><span class="stock-help">Choose a product to see its current quantity.</span></div>
 
       <label data-stock-new>Product code <input name="newId" type="text" placeholder="Leave blank to auto-create"></label>
       <label data-stock-new>Product / club / team <input name="club" type="text" placeholder="e.g. Arsenal jersey"></label>
       <label data-stock-new>Season <input name="season" type="text" placeholder="e.g. 2026/27"></label>
-      <label data-stock-new>Kit / style <input name="kit" type="text" placeholder="Home / Away / Third"></label>
+      <label data-stock-new>Kit / style <input name="kit" type="text" placeholder="Home / Away / Third / other"></label>
       <label data-stock-new>Colour <input name="color" type="text" placeholder="e.g. Red"></label>
-      <label data-stock-new>Size <input name="size" type="text" placeholder="S / M / L / XL"></label>
-      <label data-stock-new>Grade / type <input name="grade" type="text" placeholder="Replica / Original / other"></label>
+      <label data-stock-new>Size
+        <select name="size">${sizeOptions()}</select>
+        <div class="stock-help">Adult and children sizes are included. Choose Other for anything else.</div>
+      </label>
+      <label data-stock-new class="stock-hidden">Custom size <input name="sizeCustom" type="text" placeholder="Type any size, e.g. 18-20, 3XL, 24"></label>
+      <label data-stock-new>Grade / type
+        <select name="grade">${gradeOptions()}</select>
+      </label>
+      <label data-stock-new class="stock-hidden">Custom grade / type <input name="gradeCustom" type="text" placeholder="Type any grade or product type"></label>
 
       <label>Destination counter
         <select name="device">${allowedDevices().map(d=>`<option value="${d}">${counterName(d)}</option>`).join('')}</select>
       </label>
       <label>Quantity received <input name="qty" type="number" min="1" step="1" value="1" required></label>
       <label>Actual buying cost per item (UGX)
-        <input name="cost" type="number" min="0" step="1" placeholder="Cost for this batch" required>
-      </label>
-      <label>Reference selling price (optional)
-        <input name="referencePrice" type="number" min="0" step="1" placeholder="Guide only — not fixed">
-        <div class="stock-help">This is only a note/reference. Sales can use any actual selling price.</div>
+        <input name="cost" type="number" min="0" step="1" placeholder="Cost for this delivery" required>
+        <div class="stock-help">Used for profit accounting only. It is not a fixed product price.</div>
       </label>
       <label class="full">Supplier / note <input name="note" type="text" placeholder="Optional supplier or stock note"></label>
     `,async f=>{
-      const v=Object.fromEntries(f);
-      const qty=Number(v.qty),cost=Number(v.cost),ref=Number(v.referencePrice||0);
+      const form=f instanceof HTMLFormElement?f:document.querySelector('#dialog-form');
+      const v=Object.fromEntries(f),qty=Number(v.qty),cost=Number(v.cost);
       if(!Number.isInteger(qty)||qty<1)throw new Error('Enter the quantity received');
-      if(!Number.isFinite(cost)||cost<0)throw new Error('Enter the actual buying cost for this batch');
-      if(!Number.isFinite(ref)||ref<0)throw new Error('Reference selling price must be zero/blank or a positive amount');
+      if(!Number.isFinite(cost)||cost<0)throw new Error('Enter the actual buying cost for this delivery');
       let id='';
       if(v.kind==='new'){
-        for(const k of ['club','size'])if(!String(v[k]||'').trim())throw new Error('Enter at least the product name/team and size');
-        id=String(v.newId||'').trim()||newStockCode(v.club,v.size);
+        const size=chosenFlexible(form,'size');
+        const grade=chosenFlexible(form,'grade');
+        if(!String(v.club||'').trim())throw new Error('Enter the product / club / team');
+        if(!size)throw new Error('Choose or enter a size');
+        if(!grade)throw new Error('Choose or enter a grade / type');
+        id=String(v.newId||'').trim()||newStockCode(v.club,size);
         await onlineEvent('product',{
           id,
           club:String(v.club||'').trim(),
           season:String(v.season||'').trim(),
           kit:String(v.kit||'').trim(),
           color:String(v.color||'').trim(),
-          size:String(v.size||'').trim(),
-          grade:String(v.grade||'').trim()||'Standard',
+          size,
+          grade,
           cost,
           retail:0,
           wholesale:0
@@ -135,14 +178,14 @@ js = r'''
         qty,
         cost,
         date:now(),
-        note:referenceNote(v.note,ref)
+        note:String(v.note||'Stock received').trim()||'Stock received'
       });
-      toast(v.kind==='new'?'New product and stock added.':'Stock received and average buying cost updated.');
+      toast(v.kind==='new'?'New product and stock added.':'Stock received successfully.');
     });
     setTimeout(setupSmartStockForm,0);
   };
 
-  // Keep the existing Add product action consistent with the smarter stock workflow.
+  // Add product uses the same flexible receive-stock workflow.
   addProduct=function(){restock()};
 })();
 </script>
@@ -153,4 +196,4 @@ if body_end < 0:
     raise RuntimeError('Final body tag not found')
 html = html[:body_end] + css + '\n' + js + '\n' + html[body_end:]
 index.write_text(html)
-print('Kai Wear smart flexible stock workflow enabled.')
+print('Kai Wear flexible sizes, grades and quantity-focused stock display enabled.')
