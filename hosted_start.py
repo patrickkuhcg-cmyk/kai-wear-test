@@ -1,8 +1,14 @@
 """Disposable hosted test: bootstrap owner privately before accepting traffic."""
-import os, secrets
+import os, secrets, runpy
+from pathlib import Path
 from urllib.parse import urlparse
 from http.server import ThreadingHTTPServer
 import server
+
+def apply_ui_patch():
+    patch = Path(__file__).with_name('ui_patch.py')
+    if patch.exists():
+        runpy.run_path(str(patch), run_name='__kai_ui_patch__')
 
 def bootstrap_owner():
     password=os.environ.get('KAI_OWNER_PASSWORD','')
@@ -24,6 +30,7 @@ class TestHandler(server.Handler):
 
 if __name__=='__main__':
     os.environ.setdefault('KAI_SECURE_COOKIE','1')
+    apply_ui_patch()
     bootstrap_owner()
     port=int(os.environ.get('PORT',os.environ.get('KAI_PORT','8080')))
     print('Kai Wear disposable test server starting. No credentials are logged.',flush=True)
