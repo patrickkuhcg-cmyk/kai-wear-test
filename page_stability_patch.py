@@ -4,8 +4,14 @@ root=Path(__file__).parent
 index=root/'static'/'index.html'
 html=index.read_text()
 
+css=r'''
+<style id="kai-v16-1-legacy-stock-cleanup">
+#excel-dashboard-stock,#kai-inventory-intelligence{display:none!important}
+</style>
+'''
+
 js=r'''
-<script id="kai-render-architecture-v16">
+<script id="kai-render-architecture-v16-1">
 (()=>{
   if(typeof render!=='function'||typeof sync!=='function')return;
 
@@ -17,7 +23,12 @@ js=r'''
   let manualSyncUntil=0;
 
   const pageName=()=>String(typeof page==='undefined'?'':page);
+  const removeLegacyStockSummary=()=>{
+    document.getElementById('excel-dashboard-stock')?.remove();
+    document.getElementById('kai-inventory-intelligence')?.remove();
+  };
   const emitRendered=()=>{
+    removeLegacyStockSummary();
     try{document.dispatchEvent(new CustomEvent('kai:rendered',{detail:{page:pageName()}}))}catch(_){ }
   };
 
@@ -48,8 +59,9 @@ js=r'''
   },true);
 
   const markBuild=()=>{
+    removeLegacyStockSummary();
     const b=document.getElementById('kai-build-marker');
-    if(b)b.textContent='Excel Inventory Model v16 · Seamless Stock Runtime · 05 Oct 2026';
+    if(b)b.textContent='Excel Inventory Model v16.1 · Clean Stock Panel · 05 Oct 2026';
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
@@ -58,6 +70,6 @@ js=r'''
 
 pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
-html=html[:pos]+js+'\n'+html[pos:]
+html=html[:pos]+css+'\n'+js+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear v16 stable runtime enabled with unified Stock products subsystem.')
+print('Kai Wear v16.1 clean Stock panel enabled; redundant legacy Stock control summary removed.')
