@@ -5,14 +5,13 @@ root=Path(__file__).parent
 static=root/'static'
 index=static/'index.html'
 
-# Preserve the user's original Kai artwork exactly. Only the bottom slogan line
-# is changed to "WEAR YOUR PASSION". The same embedded asset is enforced after
-# every login DOM rebuild so desktop and mobile cannot diverge.
+# Use the user's latest approved Kai Wear artwork as the one source of truth.
+# The staged file is a web-optimized copy of the exact uploaded artwork.
 b64=(root/'kai-wear-logo-original-kai.b64').read_text().strip()
-png=base64.b64decode(b64)
-logo_path=static/'kai-wear-logo.png'
-logo_path.write_bytes(png)
-data_uri='data:image/png;base64,'+b64
+logo_bytes=base64.b64decode(b64)
+logo_path=static/'kai-wear-logo.webp'
+logo_path.write_bytes(logo_bytes)
+data_uri='data:image/webp;base64,'+b64
 
 html=index.read_text()
 style=r'''
@@ -58,7 +57,7 @@ script=f'''
     const imgs=[...area.querySelectorAll('img')];
     let img=area.querySelector('#kai-sidebar-logo')||imgs.find(x=>/kai|logo/i.test((x.alt||'')+' '+(x.src||'')+' '+(x.className||'')));
     if(img)setLogo(img,'kai-sidebar-logo');
-    else if(imgs.length) setLogo(imgs[0],'kai-sidebar-logo');
+    else if(imgs.length)setLogo(imgs[0],'kai-sidebar-logo');
   }}
 
   function replaceOldText(){{
@@ -107,4 +106,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+style+'\n'+script+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear clean embedded login logo is now enforced after all delayed desktop/mobile rerenders.')
+print('Kai Wear latest approved clean logo is enforced on login, sidebar and receipts across desktop and mobile.')
