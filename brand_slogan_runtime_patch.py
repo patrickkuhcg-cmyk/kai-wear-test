@@ -6,8 +6,8 @@ static=root/'static'
 index=static/'index.html'
 
 # Preserve the user's original Kai artwork exactly. Only the bottom slogan line
-# is changed to "WEAR YOUR PASSION". The same embedded asset is used everywhere
-# so mobile and desktop cannot diverge because of browser image caching.
+# is changed to "WEAR YOUR PASSION". The same embedded asset is enforced after
+# every login DOM rebuild so desktop and mobile cannot diverge.
 b64=(root/'kai-wear-logo-original-kai.b64').read_text().strip()
 png=base64.b64decode(b64)
 logo_path=static/'kai-wear-logo.png'
@@ -30,9 +30,11 @@ script=f'''
 (()=>{{
   const DATA={data_uri!r};
   const OLD=/wear\\s*it\\.?\\s*live\\s*it\\.?\\s*love\\s*it\\.?/gi;
+  let brandingBusy=false,brandingQueued=false;
+
   function setLogo(img,id){{
     if(!img)return null;
-    img.src=DATA;
+    if(img.src!==DATA)img.src=DATA;
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
     img.id=id;
@@ -40,26 +42,64 @@ script=f'''
     img.classList.add('kai-shared-logo');
     return img;
   }}
+
   function ensureLogin(){{
     const form=document.querySelector('#login-form');if(!form)return;
     const host=form.closest('.panel,.card,.login-card,.auth-card,.login-panel')||form.parentElement;if(!host)return;
-    let img=host.querySelector('#kai-login-logo')||[...host.querySelectorAll('img')].find(x=>/kai|logo/i.test((x.alt||'')+' '+(x.src||'')+' '+(x.className||'')));
+    const imgs=[...host.querySelectorAll('img')];
+    let img=host.querySelector('#kai-login-logo')||imgs.find(x=>/kai|logo/i.test((x.alt||'')+' '+(x.src||'')+' '+(x.className||'')))||imgs[0];
     if(img)setLogo(img,'kai-login-logo');
     else{{img=document.createElement('img');setLogo(img,'kai-login-logo');host.insertBefore(img,host.firstChild)}}
-    [...host.querySelectorAll('img')].forEach(other=>{{if(other!==img&&/kai|logo/i.test((other.alt||'')+' '+(other.src||'')+' '+(other.className||'')))other.remove()}});
+    [...host.querySelectorAll('img')].forEach(other=>{{if(other!==img)other.remove()}});
   }}
+
   function ensureSidebar(){{
     const area=document.querySelector('aside,.sidebar,#sidebar,.side-nav,nav');if(!area)return;
-    let img=area.querySelector('#kai-sidebar-logo')||[...area.querySelectorAll('img')].find(x=>/kai|logo/i.test((x.alt||'')+' '+(x.src||'')+' '+(x.className||'')));
+    const imgs=[...area.querySelectorAll('img')];
+    let img=area.querySelector('#kai-sidebar-logo')||imgs.find(x=>/kai|logo/i.test((x.alt||'')+' '+(x.src||'')+' '+(x.className||'')));
     if(img)setLogo(img,'kai-sidebar-logo');
-    else{{img=document.createElement('img');setLogo(img,'kai-sidebar-logo');area.insertBefore(img,area.firstChild)}}
+    else if(imgs.length) setLogo(imgs[0],'kai-sidebar-logo');
   }}
-  function replaceOldText(){{const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){{if(OLD.test(n.nodeValue||''))n.nodeValue=(n.nodeValue||'').replace(OLD,'Wear Your Passion');OLD.lastIndex=0}}}}
-  function applyBrand(){{ensureLogin();ensureSidebar();replaceOldText()}}
-  if(typeof receiptHTML==='function'&&!receiptHTML.__kaiSharedLogo){{const base=receiptHTML;const wrapped=function(...args){{let out=String(base.apply(this,args)).replace(OLD,'Wear Your Passion');OLD.lastIndex=0;const tag=`<img class="kai-receipt-logo" alt="Kai Wear — Wear Your Passion" src="${{DATA}}">`;if(/<img\\b[^>]*>/i.test(out))out=out.replace(/<img\\b[^>]*>/i,tag);else out=tag+out;return out}};wrapped.__kaiSharedLogo=true;receiptHTML=wrapped}}
+
+  function replaceOldText(){{
+    if(!document.body)return;
+    const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+    while((n=w.nextNode())){{if(OLD.test(n.nodeValue||''))n.nodeValue=(n.nodeValue||'').replace(OLD,'Wear Your Passion');OLD.lastIndex=0}}
+  }}
+
+  function applyBrand(){{
+    if(brandingBusy){{brandingQueued=true;return}}
+    brandingBusy=true;
+    try{{ensureLogin();ensureSidebar();replaceOldText()}}
+    finally{{brandingBusy=false;if(brandingQueued){{brandingQueued=false;requestAnimationFrame(applyBrand)}}}}
+  }}
+
+  if(typeof receiptHTML==='function'&&!receiptHTML.__kaiSharedLogo){{
+    const base=receiptHTML;
+    const wrapped=function(...args){{
+      let out=String(base.apply(this,args)).replace(OLD,'Wear Your Passion');OLD.lastIndex=0;
+      const tag=`<img class="kai-receipt-logo" alt="Kai Wear — Wear Your Passion" src="${{DATA}}">`;
+      if(/<img\\b[^>]*>/i.test(out))out=out.replace(/<img\\b[^>]*>/i,tag);else out=tag+out;
+      return out
+    }};
+    wrapped.__kaiSharedLogo=true;receiptHTML=wrapped
+  }}
+
   document.addEventListener('kai:rendered',applyBrand);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyBrand,{{once:true}});else applyBrand();
-  setTimeout(applyBrand,200);setTimeout(applyBrand,800);setTimeout(applyBrand,1600);
+
+  const observer=new MutationObserver(mutations=>{{
+    let relevant=false;
+    for(const m of mutations){{
+      if(m.type==='childList'){{relevant=true;break}}
+      if(m.type==='attributes'&&m.target?.tagName==='IMG'){{relevant=true;break}}
+    }}
+    if(relevant)requestAnimationFrame(applyBrand);
+  }});
+  const startObserver=()=>observer.observe(document.documentElement,{{childList:true,subtree:true,attributes:true,attributeFilter:['src','srcset','id','class']}});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startObserver,{{once:true}});else startObserver();
+
+  setTimeout(applyBrand,200);setTimeout(applyBrand,800);setTimeout(applyBrand,1600);setTimeout(applyBrand,3500);
 }})();
 </script>
 '''
@@ -67,4 +107,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+style+'\n'+script+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear login, sidebar and receipts now use one identical embedded logo asset on mobile and desktop.')
+print('Kai Wear clean embedded login logo is now enforced after all delayed desktop/mobile rerenders.')
