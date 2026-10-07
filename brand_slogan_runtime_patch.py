@@ -5,8 +5,7 @@ root=Path(__file__).parent
 static=root/'static'
 index=static/'index.html'
 
-# Use the user's latest approved Kai Wear artwork as the one source of truth.
-# The staged file is a web-optimized copy of the exact uploaded artwork.
+# Use the user's approved Kai Wear artwork as the one source of truth.
 b64=(root/'kai-wear-logo-original-kai.b64').read_text().strip()
 logo_bytes=base64.b64decode(b64)
 logo_path=static/'kai-wear-logo.webp'
@@ -29,11 +28,11 @@ script=f'''
 (()=>{{
   const DATA={data_uri!r};
   const OLD=/wear\\s*it\\.?\\s*live\\s*it\\.?\\s*love\\s*it\\.?/gi;
-  let brandingBusy=false,brandingQueued=false;
+  let queued=false;
 
   function setLogo(img,id){{
     if(!img)return null;
-    if(img.src!==DATA)img.src=DATA;
+    if(img.getAttribute('src')!==DATA)img.setAttribute('src',DATA);
     img.removeAttribute('srcset');
     img.removeAttribute('sizes');
     img.id=id;
@@ -60,17 +59,15 @@ script=f'''
     else if(imgs.length)setLogo(imgs[0],'kai-sidebar-logo');
   }}
 
-  function replaceOldText(){{
+  function ensureBrand(){{ensureLogin();ensureSidebar()}}
+  function queueBrand(){{if(queued)return;queued=true;requestAnimationFrame(()=>{{queued=false;ensureBrand()}})}}
+
+  // Old slogan text replacement is intentionally a one-time/lightweight task.
+  // It is not allowed to run on every DOM mutation or navigation render.
+  function replaceOldTextOnce(){{
     if(!document.body)return;
     const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
-    while((n=w.nextNode())){{if(OLD.test(n.nodeValue||''))n.nodeValue=(n.nodeValue||'').replace(OLD,'Wear Your Passion');OLD.lastIndex=0}}
-  }}
-
-  function applyBrand(){{
-    if(brandingBusy){{brandingQueued=true;return}}
-    brandingBusy=true;
-    try{{ensureLogin();ensureSidebar();replaceOldText()}}
-    finally{{brandingBusy=false;if(brandingQueued){{brandingQueued=false;requestAnimationFrame(applyBrand)}}}}
+    while((n=w.nextNode())){{const t=n.nodeValue||'';if(OLD.test(t))n.nodeValue=t.replace(OLD,'Wear Your Passion');OLD.lastIndex=0}}
   }}
 
   if(typeof receiptHTML==='function'&&!receiptHTML.__kaiSharedLogo){{
@@ -84,21 +81,27 @@ script=f'''
     wrapped.__kaiSharedLogo=true;receiptHTML=wrapped
   }}
 
-  document.addEventListener('kai:rendered',applyBrand);
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyBrand,{{once:true}});else applyBrand();
+  document.addEventListener('kai:rendered',queueBrand);
+  const start=()=>{{ensureBrand();replaceOldTextOnce()}};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{{once:true}});else start();
 
+  // Lightweight observer: react only when a login/logo node is added or an
+  // existing logo image has its source replaced. It does no page-wide work.
   const observer=new MutationObserver(mutations=>{{
-    let relevant=false;
     for(const m of mutations){{
-      if(m.type==='childList'){{relevant=true;break}}
-      if(m.type==='attributes'&&m.target?.tagName==='IMG'){{relevant=true;break}}
+      if(m.type==='attributes'&&m.target?.tagName==='IMG'&&(/kai|logo/i.test((m.target.id||'')+' '+(m.target.alt||'')+' '+(m.target.className||'')))){{queueBrand();return}}
+      if(m.type==='childList'){{
+        for(const n of m.addedNodes){{
+          if(n.nodeType!==1)continue;
+          if(n.matches?.('#login-form,img,#kai-login-logo,#kai-sidebar-logo')||n.querySelector?.('#login-form,#kai-login-logo,#kai-sidebar-logo')){{queueBrand();return}}
+        }}
+      }}
     }}
-    if(relevant)requestAnimationFrame(applyBrand);
   }});
-  const startObserver=()=>observer.observe(document.documentElement,{{childList:true,subtree:true,attributes:true,attributeFilter:['src','srcset','id','class']}});
+  const startObserver=()=>observer.observe(document.documentElement,{{childList:true,subtree:true,attributes:true,attributeFilter:['src']}});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startObserver,{{once:true}});else startObserver();
 
-  setTimeout(applyBrand,200);setTimeout(applyBrand,800);setTimeout(applyBrand,1600);setTimeout(applyBrand,3500);
+  setTimeout(queueBrand,300);setTimeout(queueBrand,1200);
 }})();
 </script>
 '''
@@ -106,4 +109,4 @@ pos=html.rfind('</body>')
 if pos<0:raise RuntimeError('Final body tag not found')
 html=html[:pos]+style+'\n'+script+'\n'+html[pos:]
 index.write_text(html)
-print('Kai Wear latest approved clean logo is enforced on login, sidebar and receipts across desktop and mobile.')
+print('Kai Wear branding runtime optimized: approved logo preserved without whole-page mutation work during navigation.')
