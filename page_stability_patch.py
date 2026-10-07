@@ -55,7 +55,7 @@ js=r'''
   };
   sync=async function(...args){if(syncRunning){syncQueued=true;return;}syncRunning=true;const manual=Date.now()<=manualSyncUntil;inManagedSync=!manual;try{return await baseSync.apply(this,args)}finally{inManagedSync=false;syncRunning=false;if(syncQueued){syncQueued=false;setTimeout(()=>sync().catch(()=>{}),180)}}};
   document.addEventListener('click',e=>{const el=e.target.closest?.('button,a');if(!el)return;const t=(el.textContent||'').trim().toLowerCase();if(t==='sync'||t.includes('sync now'))manualSyncUntil=Date.now()+3000},true);
-  const markBuild=()=>{removeOnlyLegacyTopStockBlocks();const b=document.getElementById('kai-build-marker');if(b)b.textContent='Kai Wear Management System v16.2.21 · Compact Stock Accordions · 07 Oct 2026'};
+  const markBuild=()=>{removeOnlyLegacyTopStockBlocks();const b=document.getElementById('kai-build-marker');if(b)b.textContent='Kai Wear Management System v1.0 · Stable Release'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
 </script>
@@ -84,4 +84,4 @@ if stock_accordion_patch.exists():runpy.run_path(str(stock_accordion_patch),run_
 stock_nested_patch=root/'stock_nested_content_accordion_patch.py'
 if stock_nested_patch.exists():runpy.run_path(str(stock_nested_patch),run_name='__kai_stock_nested_content_accordion__')
 
-print('Kai Wear Management System v16.2.21 enabled: expanded Stock and Category content now use compact nested accordions while all existing business logic and navigation remain intact.')
+print('Kai Wear Management System v1.0 Stable Release enabled: public version label simplified while the existing working architecture and business logic remain unchanged.')
