@@ -46,7 +46,7 @@ js=r'''
   render=function(...args){if(inManagedSync&&Date.now()>manualSyncUntil)return;const out=composedRender.apply(this,args);emitRendered();return out};
   sync=async function(...args){if(syncRunning){syncQueued=true;return;}syncRunning=true;const manual=Date.now()<=manualSyncUntil;inManagedSync=!manual;try{return await baseSync.apply(this,args)}finally{inManagedSync=false;syncRunning=false;if(syncQueued){syncQueued=false;setTimeout(()=>sync().catch(()=>{}),180)}}};
   document.addEventListener('click',e=>{const el=e.target.closest?.('button,a');if(!el)return;const t=(el.textContent||'').trim().toLowerCase();if(t==='sync'||t.includes('sync now'))manualSyncUntil=Date.now()+3000},true);
-  const markBuild=()=>{removeOnlyLegacyTopStockBlocks();const b=document.getElementById('kai-build-marker');if(b)b.textContent='Kai Wear Management System v16.2.16 · Scrollable Stock Filters · 06 Oct 2026'};
+  const markBuild=()=>{removeOnlyLegacyTopStockBlocks();const b=document.getElementById('kai-build-marker');if(b)b.textContent='Kai Wear Management System v16.2.17 · Smooth Navigation · 07 Oct 2026'};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',markBuild,{once:true});else markBuild();
 })();
 </script>
@@ -69,4 +69,4 @@ if stock_dropdown_patch.exists():runpy.run_path(str(stock_dropdown_patch),run_na
 stock_filter_ui_patch=root/'stock_filter_custom_ui_patch.py'
 if stock_filter_ui_patch.exists():runpy.run_path(str(stock_filter_ui_patch),run_name='__kai_stock_filter_custom_ui__')
 
-print('Kai Wear Management System v16.2.16 enabled: Stock Category, Version and Size filters use stable scrollable in-page dropdowns; other working behavior remains intact.')
+print('Kai Wear Management System v16.2.17 enabled: navigation path optimized; branding no longer performs whole-page mutation work during Dashboard/page changes.')
