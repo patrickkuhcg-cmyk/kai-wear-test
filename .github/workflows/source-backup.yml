@@ -1,0 +1,43 @@
+name: Kai Wear Source Backup
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/source-backup.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create backup manifest
+        shell: bash
+        run: |
+          cat > BACKUP_MANIFEST.txt <<EOF
+          Kai Wear Management System v1.0 - Stable Release
+          Repository: patrickkuhcg-cmyk/kai-wear-test
+          Backup commit: $GITHUB_SHA
+          Stable source baseline before backup workflow: f38fe0920af345a501ec6089166a70a7e7c93d3c
+          Created: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          Includes repository source, hidden deployment payload, static assets, runtime patches, configuration, and Git history.
+          EOF
+      - name: Create source archive
+        shell: bash
+        run: |
+          zip -r kai-wear-management-system-v1.0-complete-backup.zip . \
+            -x '.git/*' \
+            -x 'kai-wear-management-system-v1.0-complete-backup.zip'
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kai-wear-v1.0-complete-backup
+          path: kai-wear-management-system-v1.0-complete-backup.zip
+          retention-days: 7
+          if-no-files-found: error
